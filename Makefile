@@ -9,5 +9,5 @@ clean:
 $F.bin: $F.hex
 	avr-objcopy -I ihex -O binary $< $@
 
-$F.asm: $F.bin
-	${DISAS} -a1 -o0 -c1 -s1 -p0 -l1 -m8535 $< > $@
+$F.asm: $F.bin $F.tag
+	${DISAS} -a1 -o0 -c1 -s1 -p0 -l1 -t$F.tag -m8535 $< > $@
