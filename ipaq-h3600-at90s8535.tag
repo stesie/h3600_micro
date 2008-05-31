@@ -1,0 +1,10 @@
+0x06EA	L	__vect_Reset
+0x0022	L	__vect_ExternalInt0
+0x006E	L	__vect_ExternalInt1
+0x016E	L	__vect_Timer2Ovf
+0x0098	L	__vect_Timer0Ovf
+0x067A	L	__vect_SpiTransferComplete
+0x02B4	L	__vect_UartRxComplete
+0x0360	L	__vect_UartDataRegEmpty
+0x0390	L	__vect_UartTxComplete
+0x039C	L	__vect_UartAdcComplete
