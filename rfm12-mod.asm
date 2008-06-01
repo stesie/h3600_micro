@@ -1983,8 +1983,10 @@ Label169:
 ; Referenced from offset 0xc40 by rjmp
 ; Referenced from offset 0xc4e by rjmp
 Label170:
+	rjmp	main_charging_locic_start
+	nop
 main_notif_led_start:
- c50:   lds     r16, 0x006d
+; c50:   lds     r16, 0x006d
  c54:   sbrs    r16, 0          ; 0x01 = 1
  c56:   rjmp    Label177
  c58:   sbrs    r16, 1          ; 0x02 = 2
