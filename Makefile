@@ -22,12 +22,12 @@ $O.bin: $O.elf
 $O.hex: $O.elf
 	avr-objcopy -O ihex -R .eeprom $< $@
 
-$O.dot: $O.asm $O.inc extract-flow-info
+%.dot: %.asm codeblocks.dot extract-flow-info
 	rm -f $@
 	echo "digraph flow {" >> $@
 	./extract-flow-info < $< | uniq >> $@
-	cat $O.inc >> $@
+	cat codeblocks.dot >> $@
 	echo "}" >> $@
 
-$O.png: $O.dot
+%.png: %.dot
 	dot -Tpng -o $@ $<
