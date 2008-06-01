@@ -59,7 +59,7 @@ main:
    e:   reti
   10:   reti
   12:   rjmp    __vect_Timer0Ovf
-  14:   rjmp    __vect_SpiTransferComplete
+  14:   reti
   16:   rjmp    __vect_UartRxComplete
   18:   rjmp    __vect_UartDataRegEmpty
   1a:   rjmp    __vect_UartTxComplete
