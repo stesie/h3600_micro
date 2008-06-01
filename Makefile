@@ -29,7 +29,7 @@ $O.hex: $O.elf
 $O.dot: $O.asm $O.inc extract-flow-info
 	rm -f $@
 	echo "digraph flow {" >> $@
-	./extract-flow-info < $< >> $@
+	./extract-flow-info < $< | uniq >> $@
 	cat $O.inc >> $@
 	echo "}" >> $@
 

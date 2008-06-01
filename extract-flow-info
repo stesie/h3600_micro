@@ -15,16 +15,16 @@ while (<>) {
   if (m/^([A-Za-z_][A-Za-z0-9_]+):/) {
     # fished a jumpmark label
     unless ($suppress_fall_through) {
-      print "\"$current_label\" -> \"$1\"; /* fall through */\n";
+      print "\"$current_label\" -> \"$1\";\n";
     }
     $current_label = $1;
   }
 
   if (m/(rjmp|rcall|br[a-z]{2})\s+([A-Za-z_][A-ZA-z0-9_]+)/) {
-    print "\"$current_label\" -> \"$2\"; /* $1 */\n";
+    print "\"$current_label\" -> \"$2\";\n";
   }
   if (m/(rcall)\s+([A-Za-z_][A-ZA-z0-9_]+)/) {
-    print "\"$2\" -> \"$current_label\"; /* $1 (reverse) */\n";
+    print "\"$2\" -> \"$current_label\";\n";
   }
 
   if ($last_was_skip == 0 && m/(rjmp|reti|ret)/) {
