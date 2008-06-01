@@ -1662,57 +1662,57 @@ Label143:
  a86:   st      Y+, r16
  a88:   lds     r17, 0x0067
  a8c:   sbrc    r17, 0          ; 0x01 = 1
- a8e:   rjmp    Label144
+ a8e:   rjmp    TX_DefaultAck_CodecControl
  a90:   sbrc    r17, 1          ; 0x02 = 2
- a92:   rjmp    Label145
+ a92:   rjmp    TX_DefaultAck_NotifyLED
  a94:   sbrc    r17, 2          ; 0x04 = 4
- a96:   rjmp    Label146
+ a96:   rjmp    TX_DefaultAck_EEpromWrite
  a98:   sbrc    r17, 3          ; 0x08 = 8
- a9a:   rjmp    Label147
+ a9a:   rjmp    TX_DefaultAck_SpiWrite
  a9c:   clr     r17
  a9e:   sts     0x0067, r17
  aa2:   andi    r23, 0x7e       ; 126
  aa4:   rjmp    Label151
 
 ; Referenced from offset 0xa8e by rjmp
-Label144:
+TX_DefaultAck_CodecControl:
  aa6:   ldi     r16, 0xd0       ; 208
  aa8:   andi    r17, 0xfe       ; 254
- aaa:   rjmp    Label148
+ aaa:   rjmp    TX_DefaultAck_PrepareSend
 
 ; Referenced from offset 0xa92 by rjmp
-Label145:
+TX_DefaultAck_NotifyLED:
  aac:   ldi     r16, 0x80       ; 128
  aae:   andi    r17, 0xfd       ; 253
- ab0:   rjmp    Label148
+ ab0:   rjmp    TX_DefaultAck_PrepareSend
 
 ; Referenced from offset 0xa96 by rjmp
-Label146:
+TX_DefaultAck_EEpromWrite:
  ab2:   ldi     r16, 0x50       ; 80
  ab4:   andi    r17, 0xfb       ; 251
- ab6:   rjmp    Label148
+ ab6:   rjmp    TX_DefaultAck_PrepareSend
 
 ; Referenced from offset 0xa9a by rjmp
-Label147:
+TX_DefaultAck_SpiWrite:
  ab8:   ldi     r16, 0xc0       ; 192
  aba:   andi    r17, 0xf7       ; 247
- abc:   rjmp    Label148
+ abc:   rjmp    TX_DefaultAck_PrepareSend
 
 ; Referenced from offset 0xaaa by rjmp
 ; Referenced from offset 0xab0 by rjmp
 ; Referenced from offset 0xab6 by rjmp
 ; Referenced from offset 0xabc by rjmp
-Label148:
+TX_DefaultAck_PrepareSend:
  abe:   st      Y+, r16
  ac0:   st      Y+, r16
  ac2:   sts     0x00d2, r28
  ac6:   sts     0x0067, r17
  aca:   cpi     r17, 0x00       ; 0
- acc:   brne    Label149
+ acc:   brne    TX_DefaultAck_EnableUart
  ace:   andi    r23, 0x7f       ; 127
 
 ; Referenced from offset 0xacc by brne
-Label149:
+TX_DefaultAck_EnableUart:
  ad0:   cli
  ad2:   sbi     UCR, 5          ; 0x20 = 32
  ad4:   sei

@@ -64,12 +64,12 @@ subgraph cluster_CPU_IRQ {
     style = filled
     color = "palegreen2"
   ];
-  Label144;
-  Label145;
-  Label146;
-  Label147;
-  Label148;
-  Label149;
+  TX_DefaultAck_CodecControl;
+  TX_DefaultAck_NotifyLED;
+  TX_DefaultAck_EEpromWrite;
+  TX_DefaultAck_SpiWrite;
+  TX_DefaultAck_PrepareSend;
+  TX_DefaultAck_EnableUart;
   Label150;
   Label151;
   Label151 [
