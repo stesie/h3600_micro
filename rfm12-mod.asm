@@ -1217,7 +1217,15 @@ Label121:
  752:   out     OCR1BH, r16
  754:   out     OCR1BL, r16
  756:   out     SPSR, r16
- 758:   ldi     r17, 0xd6       ; 214
+
+ ;; original settings (0xd6)
+ ;; 1101 0110 = SPI interrupt enable, SPI enable, Master // CPHA, SPR1
+ ;; -> prescale /64
+
+ ;; modification:
+ ;; no SPI interrupt, SPI mode 0 -> CPHA off
+ ;; 0101 0010  -> 0x52
+ 758:   ldi     r17, 0x52
  75a:   out     SPCR, r17
  75c:   out     EECR, r16
  75e:   ldi     r17, 0x98       ; 152
@@ -1959,7 +1967,6 @@ Label170:
 
 .org 0xcdc
 
-Label178:
 main_charging_locic_start:
  cdc:   lds     r16, 0x0075
  ce0:   sbrs    r16, 0          ; 0x01 = 1
@@ -2768,12 +2775,13 @@ Label287:
 159c:   brne    Label288
 159e:   sbic    PINB, 3         ; 0x08 = 8
 15a0:   rjmp    Label289
+SleepEnable_Idle:
 15a2:   cbi     ADCSR, 7        ; 0x80 = 128
 15a4:   cbi     SPCR, 6         ; 0x40 = 64
 15a6:   ldi     r16, 0x40       ; 64
 15a8:   out     MCUCR, r16
 15aa:   sei
-15ac:   sleep
+15ac:   sleep			; FIXME why sleep here?  PB3 is low ?
 15ae:   rjmp    Label122
 
 ; Referenced from offset 0x1554 by rjmp
