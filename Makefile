@@ -1,4 +1,4 @@
-F=ipaq-h3600-at90s8535
+F=original
 O=h3600_micro-hax0rd
 
 all: $O.bin $O.hex $O.dot
