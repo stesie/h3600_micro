@@ -3,6 +3,8 @@ subgraph cluster_CPU_IRQ {
   label = "CPU_IRQ Handler";
   style = filled;
   color = lightgrey;
+
+  main_cpu_irq_handler_start;
   Label123;
   Label125;
   Label126;
@@ -99,6 +101,7 @@ subgraph cluster_adc {
   style = filled;
   color = sandybrown;
 
+  main_adc_start;
   Label159;
   Label160;
   Label161;
@@ -110,6 +113,7 @@ subgraph cluster_adc {
   Label167;
   Label168;
   Label169;
+  Label170;
   Label290;
   Function1;
 }
@@ -119,7 +123,7 @@ subgraph cluster_notif_led {
   style = filled;
   color = seagreen1;
 
-  Label170;
+  main_notif_led_start;
   Label171;
   Label172;
   Label173;
@@ -127,6 +131,7 @@ subgraph cluster_notif_led {
   Label175;
   Label176;
   Label177;
+  Label178;
 }
 
 subgraph cluster_r9 {
@@ -134,8 +139,8 @@ subgraph cluster_r9 {
   style = filled;
   color = plum1;
 
-  Label214 [
-    label = "Label214 | r9, bit 0"
+  main_r9_handler_start [
+    label = "main_r9_handler_start | r9, bit 0"
     shape = "record"
   ];
   Label215;
@@ -171,6 +176,7 @@ subgraph cluster_message_handler {
   style = filled;
   color = gold;
 
+  msg_handler_start
   RX_Handler_MSG_NOTIFY_LED
   RX_Handler_DEMUX
   RX_Handler_MSG_EEPROM_READ
@@ -222,6 +228,7 @@ subgraph cluster_spi {
   style = filled;
   color = crimson;
 
+  main_spi_start;
   Label241;
   Label242;
   Label243;
@@ -269,7 +276,7 @@ subgraph cluster_charging_logic {
   Label311;
   Label312;
 
-  Label178;
+  main_charging_locic_start;
   Label179;
   Label180;
   Label181;
@@ -305,7 +312,7 @@ subgraph cluster_charging_logic {
   Label211;
   Label212;
   Label213;
-
+  Label214;
 }
 
 subgraph cluster_startup {
