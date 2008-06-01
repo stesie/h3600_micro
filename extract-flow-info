@@ -3,6 +3,7 @@ use strict;
 
 my $current_label = "<<reset>>";
 my $suppress_fall_through = 1;
+my $last_was_skip = 0;
 
 while (<>) {
   chop $_;
@@ -26,11 +27,19 @@ while (<>) {
     print "\"$2\" -> \"$current_label\"; /* $1 (reverse) */\n";
   }
 
-  if (m/(rjmp|reti|ret)/) {
+  if ($last_was_skip == 0 && m/(rjmp|reti|ret)/) {
     $suppress_fall_through = 1;
   }
   else {
     $suppress_fall_through = 0;
   }
+
+  if (m/\s+(sb.[cs])\s+/) {
+    $last_was_skip = 1;
+  }
+  else {
+    $last_was_skip = 0;
+  }
+
 }
 
