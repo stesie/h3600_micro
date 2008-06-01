@@ -4,7 +4,7 @@ O=h3600_micro-hax0rd
 all: $O.bin $O.hex $O.dot
 
 clean:
-	rm -f $F.bin
+	rm -f $F.{elf,bin,png,dot}
 	rm -f $O.{elf,bin,hex,png,dot}
 
 $F.bin: $F.hex
