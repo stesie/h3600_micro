@@ -130,7 +130,7 @@ subgraph cluster_notif_led {
   Label174;
   Label175;
   Label176;
-  Label177;
+  Notify_LED_Off;
   Label178;
 }
 
@@ -330,7 +330,7 @@ subgraph cluster_charging_logic {
   Label311;
   Label312;
 
-  main_charging_locic_start;
+  main_charging_logic_start;
   Label179;
   Label180;
   Label181;

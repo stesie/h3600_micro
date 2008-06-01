@@ -88,11 +88,11 @@ Label2:
   3a:   sbis    PINB, 0         ; 0x01 = 1
   3c:   sbi     PORTC, 4        ; 0x10 = 16
   3e:   sbis    PINB, 2         ; 0x04 = 4
-  40:   rjmp    Label3
+  40:   rjmp    KeyPress_IRQ
   42:   rjmp    Label4
 
 ; Referenced from offset 0x40 by rjmp
-Label3:
+KeyPress_IRQ:
   44:   lds     r19, 0x0068
   48:   andi    r19, 0x12       ; 18
   4a:   brne    Label4
@@ -1316,7 +1316,7 @@ Label121:
 ; Referenced from offset 0x15ae by rjmp
 ; Referenced from offset 0x15b2 by rjmp
 ; Referenced from offset 0x1602 by rjmp
-Label122:
+MainLoop_Start:
 main_cpu_irq_handler_start:
  818:   sbrc    r23, 0          ; 0x01 = 1
  81a:   rjmp    Label158
@@ -1986,7 +1986,7 @@ Label170:
 main_notif_led_start:
  c50:   lds     r16, 0x006d
  c54:   sbrs    r16, 0          ; 0x01 = 1
- c56:   rjmp    Label177
+ c56:   rjmp    Notify_LED_Off
  c58:   sbrs    r16, 1          ; 0x02 = 2
  c5a:   rjmp    Label178
  c5c:   andi    r16, 0xfd       ; 253
@@ -2055,7 +2055,7 @@ Label176:
  cd6:   rjmp    Label178
 
 ; Referenced from offset 0xc56 by rjmp
-Label177:
+Notify_LED_Off:
  cd8:   sbis    PINB, 4         ; 0x10 = 16
  cda:   sbi     PORTB, 4        ; 0x10 = 16
 
@@ -2066,7 +2066,7 @@ Label177:
 ; Referenced from offset 0xcc8 by rjmp
 ; Referenced from offset 0xcd6 by rjmp
 Label178:
-main_charging_locic_start:
+main_charging_logic_start:
  cdc:   lds     r16, 0x0075
  ce0:   sbrs    r16, 0          ; 0x01 = 1
  ce2:   rjmp    Label204
@@ -3367,46 +3367,46 @@ Label287:
 154e:   cbi     PORTD, 7        ; 0x80 = 128
 1550:   cli
 1552:   sbis    PINB, 0         ; 0x01 = 1
-1554:   rjmp    Label288
+1554:   rjmp    FinishLoopWithoutSleeping
 1556:   lds     r16, 0x0068
 155a:   andi    r16, 0x12       ; 18
-155c:   brne    Label288
+155c:   brne    FinishLoopWithoutSleeping
 155e:   cpi     r23, 0x00       ; 0
-1560:   brne    Label288
+1560:   brne    FinishLoopWithoutSleeping
 1562:   cpi     r24, 0x00       ; 0
-1564:   brne    Label288
+1564:   brne    FinishLoopWithoutSleeping
 1566:   cpi     r25, 0x00       ; 0
-1568:   brne    Label288
+1568:   brne    FinishLoopWithoutSleeping
 156a:   mov     r16, r9
 156c:   cpi     r16, 0x00       ; 0
-156e:   brne    Label288
+156e:   brne    FinishLoopWithoutSleeping
 1570:   mov     r16, r22
 1572:   andi    r16, 0x86       ; 134
-1574:   brne    Label288
+1574:   brne    FinishLoopWithoutSleeping
 1576:   lds     r16, 0x0065
 157a:   cpi     r16, 0x00       ; 0
-157c:   brne    Label288
+157c:   brne    FinishLoopWithoutSleeping
 157e:   lds     r16, 0x006d
 1582:   andi    r16, 0x01       ; 1
-1584:   brne    Label288
+1584:   brne    FinishLoopWithoutSleeping
 1586:   lds     r16, 0x00f4
 158a:   andi    r16, 0x0f       ; 15
-158c:   brne    Label288
+158c:   brne    FinishLoopWithoutSleeping
 158e:   lds     r16, 0x00f3
 1592:   andi    r16, 0x80       ; 128
-1594:   brne    Label288
+1594:   brne    FinishLoopWithoutSleeping
 1596:   lds     r16, 0x008c
 159a:   andi    r16, 0x0f       ; 15
-159c:   brne    Label288
+159c:   brne    FinishLoopWithoutSleeping
 159e:   sbic    PINB, 3         ; 0x08 = 8
-15a0:   rjmp    Label289
+15a0:   rjmp    SleepEnable_PowerDown
 15a2:   cbi     ADCSR, 7        ; 0x80 = 128
 15a4:   cbi     SPCR, 6         ; 0x40 = 64
 15a6:   ldi     r16, 0x40       ; 64
 15a8:   out     MCUCR, r16
 15aa:   sei
 15ac:   sleep
-15ae:   rjmp    Label122
+15ae:   rjmp    MainLoop_Start
 
 ; Referenced from offset 0x1554 by rjmp
 ; Referenced from offset 0x155c by brne
@@ -3421,15 +3421,15 @@ Label287:
 ; Referenced from offset 0x1594 by brne
 ; Referenced from offset 0x159c by brne
 ; Referenced from offset 0x15ba by brne
-Label288:
+FinishLoopWithoutSleeping:
 15b0:   sei
-15b2:   rjmp    Label122
+15b2:   rjmp    MainLoop_Start
 
 ; Referenced from offset 0x15a0 by rjmp
-Label289:
+SleepEnable_PowerDown:
 15b4:   lds     r16, 0x008e
 15b8:   andi    r16, 0x03       ; 3
-15ba:   brne    Label288
+15ba:   brne    FinishLoopWithoutSleeping
 15bc:   cbi     ADCSR, 7        ; 0x80 = 128
 15be:   cbi     SPCR, 6         ; 0x40 = 64
 15c0:   cbi     PORTC, 3        ; 0x08 = 8
@@ -3461,7 +3461,7 @@ Label289:
 15f6:   sts     0x00b7, r16
 15fa:   sts     0x00b8, r16
 15fe:   sts     0x00ff, r16
-1602:   rjmp    Label122
+1602:   rjmp    MainLoop_Start
 
 ; Referenced from offset 0xbbe by rcall
 ; Referenced from offset 0xbea by rcall
