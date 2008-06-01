@@ -11,6 +11,7 @@ while (<>) {
 
   if (m/^\s*$/) { next }	# empty line
   if (m/^\.[a-z]+($| )/) { next }	# .equ or something alike
+  if (m/nop/) { next }
 
   if (m/^([A-Za-z_][A-Za-z0-9_]+):/) {
     # fished a jumpmark label
