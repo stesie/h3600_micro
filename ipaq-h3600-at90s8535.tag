@@ -13,7 +13,7 @@
 0x034E	L	uart_rx_error
 0x035C	L	uart_rx_iret
 0x1790	L	RX_Handler_MSG_NOTIFY_LED
-0x14E0	L	RX_Handler_DEMUX
+0x14CC	L	RX_Handler_DEMUX
 0x170A	L	RX_Handler_MSG_EEPROM_READ
 0x172E	L	RX_Handler_MSG_EEPROM_WRITE
 0x1818	L	RX_Handler_MSG_BATTERY
