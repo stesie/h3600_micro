@@ -1,7 +1,9 @@
-F=original
-N=rfm12-mod
+F		:= original
+N		:= rfm12-mod
+DOTOPTIONS 	:= -Grankdir=LR
 
-all: reasm-check $N.build.hex $N.build.dot
+
+all: reasm-check $N.build.hex $N.build.bin $N.build.dot
 
 clean:
 	rm -f $F.{elf,bin,png,dot}
@@ -33,6 +35,9 @@ $F.reasm.bin: $F.reasm.elf
 $N.build.hex: $N.build.elf
 	avr-objcopy -O ihex -R .eeprom $< $@
 
+%.lss: %.elf
+	avr-objdump -d $< > $@
+
 %.dot: %.asm codeblocks.dot extract-flow-info
 	rm -f $@
 	echo "digraph flow {" >> $@
@@ -41,12 +46,14 @@ $N.build.hex: $N.build.elf
 	echo "}" >> $@
 
 %.png: %.dot
-	dot -Tpng -o $@ $<
+	dot -Tpng ${DOTOPTIONS} -o $@ $<
 
 #-------
 
 reasm-check: $F.reasm.bin $F.bin
 	diff $^
 
+%-diff: $F.reasm.lss %.lss
+	-diff -up $^
 
 .PHONY: reasm-check
