@@ -1,5 +1,19 @@
-; Disassembly of ipaq-h3600-at90s8535.bin (avr-gcc style)
-
+;;
+;; rfm12-mod.asm
+;;
+;; This is a hacked firmware thought for the AT90S8535 controller found
+;; on Compaq iPAQ h3600.  It allows to connect an RFM12 FSK-Transmitter
+;; chip to the SPI pins.
+;;
+;; The code is based on a disassembly of the firmware read from the AVR,
+;; i.e. it's mustly from upstream but slightly modified :-)
+;;
+;; The modifications are public domain, educational purpose, whatever foo.
+;;
+;;  Got questions?  Mail me!
+;;
+;;   stesie@brokenpipe.de
+;;
 .equ EECR, 0x1c
 .equ EEDR, 0x1d
 .equ EEAR, 0x1e
@@ -1221,7 +1235,22 @@ Label121:
  720:   out     DDRA, r17
  722:   ldi     r17, 0x00       ; 0
  724:   out     PORTA, r17
- 726:   ldi     r17, 0xb2       ; 178
+
+
+;; PORTB Data Direction:
+;;
+;; <bit> <orig> <mod>
+;;   7     1	0	SPI data in (wtf!? why was it written to one?)
+;;   6     0    0	SPI CLK
+;;   5     1	1	SPI data out
+;;   4     1	0	RFM12 IRQ (was: Notification LED)
+;;   3     0	0	CPU IRQ
+;;   2     0	0	KEY PRESS# IRQ
+;;   1     1	1	Charger timing
+;;   0     0	0	AC IN IRQ
+;;  
+;726:   ldi     r17, 0xb2       ; 178
+	ldi	r17, 0x22
  728:   out     DDRB, r17
  72a:   ldi     r17, 0x1d       ; 29
  72c:   out     PORTB, r17
