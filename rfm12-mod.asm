@@ -2709,9 +2709,14 @@ Label239:
 ; Referenced from offset 0x1096 by rjmp
 ; Referenced from offset 0x10aa by rjmp
 ; Referenced from offset 0x10be by rjmp
+
 Label240:
+
+; Skip SPI-part of the main loop
+        rjmp msg_handler_start
+	nop
 main_spi_start:
-10d0:   lds     r16, 0x00f3
+;10d0:   lds     r16, 0x00f3
 10d4:   sbrc    r16, 7          ; 0x80 = 128
 10d6:   rjmp    Label249
 10d8:   lds     r17, 0x00f4
@@ -3301,17 +3306,17 @@ Label280:
 
 ; Referenced from offset 0x1502 by brne
 Label281:
-1508:   cpi     r16, 0xb0       ; 176
-150a:   brne    Label282
-150c:   rcall   RX_Handler_MSG_SPI_READ
-150e:   rjmp    RX_Handler_DEMUX_Out
+1508:   nop
+150a:   nop
+150c:   nop
+150e:   nop
 
 ; Referenced from offset 0x150a by brne
 Label282:
-1510:   cpi     r16, 0xc0       ; 192
-1512:   brne    Label283
-1514:   rcall   RX_Handler_MSG_SPI_WRITE
-1516:   rjmp    RX_Handler_DEMUX_Out
+1510:   nop
+1512:   nop
+1514:   nop
+1516:   nop
 
 ; Referenced from offset 0x1512 by brne
 Label283:
