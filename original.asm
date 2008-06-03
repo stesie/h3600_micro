@@ -1187,13 +1187,13 @@ __vect_Reset:
  6f2:   out     SPL, r16
  6f4:   in      r16, MCUSR
  6f6:   sbrs    r16, 0          ; 0x01 = 1
- 6f8:   rjmp    _on_other_reset
+ 6f8:   rjmp    _on_external_reset
  6fa:   rjmp    _on_power_on_reset
 
 ; Referenced from offset 0x6f8 by rjmp
-_on_other_reset:
+_on_external_reset:
  6fc:   sbrs    r16, 1          ; 0x02 = 2
- 6fe:   rjmp    Label120
+ 6fe:   rjmp    _on_watchdog_reset
  700:   ldi     r17, 0x02       ; 2
  702:   sts     0x00bf, r17
  706:   rjmp    Label121
@@ -1205,7 +1205,7 @@ _on_power_on_reset:
  70e:   rjmp    Label121
 
 ; Referenced from offset 0x6fe by rjmp
-Label120:
+_on_watchdog_reset:
  710:   ldi     r17, 0x03       ; 3
  712:   sts     0x00bf, r17
  716:   rjmp    Label121
@@ -1346,7 +1346,7 @@ Label123:
 ; Referenced from offset 0x82c by rjmp
 Label124:
  840:   sbrs    r22, 0          ; 0x01 = 1
- 842:   rjmp    Label128
+ 842:   rjmp    TX_VersionAck
 
 ; Referenced from offset 0x830 by rjmp
 Label125:
@@ -1375,7 +1375,7 @@ Label127:
  868:   rjmp    Label158
 
 ; Referenced from offset 0x842 by rjmp
-Label128:
+TX_VersionAck:
  86a:   sbrs    r23, 4          ; 0x10 = 16
  86c:   rjmp    Label130
  86e:   sbic    PINB, 3         ; 0x08 = 8
@@ -1446,7 +1446,7 @@ Label130:
  8f6:   clr     r29
  8f8:   ldi     r28, 0xc0       ; 192
  8fa:   sts     0x00d1, r28
- 8fe:   rcall   Function3
+ 8fe:   rcall   TX_TouchpanelReadAck
  900:   sts     0x00d2, r28
  904:   cli
  906:   sbi     UCR, 5          ; 0x20 = 32
@@ -1463,7 +1463,7 @@ Label131:
 ; Referenced from offset 0x8ec by rjmp
 Label132:
  916:   sbrs    r23, 2          ; 0x04 = 4
- 918:   rjmp    Label134
+ 918:   rjmp    TX_EepromReadAck
  91a:   sbic    PINB, 3         ; 0x08 = 8
  91c:   rjmp    Label133
  91e:   ori     r23, 0x01       ; 1
@@ -1471,7 +1471,7 @@ Label132:
  922:   clr     r29
  924:   ldi     r28, 0xc0       ; 192
  926:   sts     0x00d1, r28
- 92a:   rcall   Function4
+ 92a:   rcall   TX_KeyboardAck
  92c:   sts     0x00d2, r28
  930:   cli
  932:   sbi     UCR, 5          ; 0x20 = 32
@@ -1486,7 +1486,7 @@ Label133:
  940:   sts     0x0068, r16
 
 ; Referenced from offset 0x918 by rjmp
-Label134:
+TX_EepromReadAck:
  944:   sbrs    r23, 3          ; 0x08 = 8
  946:   rjmp    Label137
  948:   sbic    PINB, 3         ; 0x08 = 8
@@ -1507,12 +1507,12 @@ Label134:
  968:   mov     r18, r17
 
 ; Referenced from offset 0x972 by brne
-Label135:
+TX_EepromReadAck_CopyLoop:
  96a:   ld      r17, X+
  96c:   st      Y+, r17
  96e:   add     r18, r17
  970:   dec     r16
- 972:   brne    Label135
+ 972:   brne    TX_EepromReadAck_CopyLoop
  974:   st      Y+, r18
  976:   sts     0x00d2, r28
  97a:   cli
@@ -1527,7 +1527,7 @@ Label136:
 ; Referenced from offset 0x946 by rjmp
 Label137:
  984:   sbrs    r22, 7          ; 0x80 = 128
- 986:   rjmp    Label139
+ 986:   rjmp    TX_BatteryAck
  988:   sbic    PINB, 3         ; 0x08 = 8
  98a:   rjmp    Label138
  98c:   ori     r23, 0x01       ; 1
@@ -1557,7 +1557,7 @@ Label138:
  9ba:   andi    r22, 0x7f       ; 127
 
 ; Referenced from offset 0x986 by rjmp
-Label139:
+TX_BatteryAck:
  9bc:   sbrs    r23, 6          ; 0x40 = 64
  9be:   rjmp    Label143
  9c0:   sbic    PINB, 3         ; 0x08 = 8
@@ -1611,14 +1611,14 @@ Label139:
  a2e:   st      Y+, r16
  a30:   lds     r18, 0x00ff
  a34:   sbrc    r18, 1          ; 0x02 = 2
- a36:   rjmp    Label140
+ a36:   rjmp    TX_BatteryAck_2ndBatt
  a38:   sbrc    r18, 0          ; 0x01 = 1
- a3a:   rjmp    Label140
- a3c:   rjmp    Label141
+ a3a:   rjmp    TX_BatteryAck_2ndBatt
+ a3c:   rjmp    TX_BatteryAck_Out
 
 ; Referenced from offset 0xa36 by rjmp
 ; Referenced from offset 0xa3a by rjmp
-Label140:
+TX_BatteryAck_2ndBatt:
  a3e:   lds     r16, 0x00b6
  a42:   add     r17, r16
  a44:   st      Y+, r16
@@ -1636,7 +1636,7 @@ Label140:
  a60:   st      Y+, r16
 
 ; Referenced from offset 0xa3c by rjmp
-Label141:
+TX_BatteryAck_Out:
  a62:   st      Y+, r17
  a64:   sts     0x00d2, r28
  a68:   cli
@@ -1651,7 +1651,7 @@ Label142:
 ; Referenced from offset 0x9be by rjmp
 Label143:
  a72:   sbrs    r23, 7          ; 0x80 = 128
- a74:   rjmp    Label151
+ a74:   rjmp    TX_BacklightAck
  a76:   sbic    PINB, 3         ; 0x08 = 8
  a78:   rjmp    Label150
  a7a:   ori     r23, 0x01       ; 1
@@ -1672,7 +1672,7 @@ Label143:
  a9c:   clr     r17
  a9e:   sts     0x0067, r17
  aa2:   andi    r23, 0x7e       ; 126
- aa4:   rjmp    Label151
+ aa4:   rjmp    TX_BacklightAck
 
 ; Referenced from offset 0xa8e by rjmp
 TX_DefaultAck_CodecControl:
@@ -1726,9 +1726,9 @@ Label150:
 
 ; Referenced from offset 0xa74 by rjmp
 ; Referenced from offset 0xaa4 by rjmp
-Label151:
+TX_BacklightAck:
  ae0:   sbrs    r23, 5          ; 0x20 = 32
- ae2:   rjmp    Label153
+ ae2:   rjmp    TX_SpiReadAck
  ae4:   sbic    PINB, 3         ; 0x08 = 8
  ae6:   rjmp    Label152
  ae8:   ori     r23, 0x01       ; 1
@@ -1756,9 +1756,9 @@ Label152:
  b14:   andi    r23, 0xdf       ; 223
 
 ; Referenced from offset 0xae2 by rjmp
-Label153:
+TX_SpiReadAck:
  b16:   sbrs    r22, 1          ; 0x02 = 2
- b18:   rjmp    Label156
+ b18:   rjmp    TX_ThermalSensorAck
  b1a:   sbic    PINB, 3         ; 0x08 = 8
  b1c:   rjmp    Label155
  b1e:   ori     r23, 0x01       ; 1
@@ -1777,12 +1777,12 @@ Label153:
  b3c:   mov     r17, r16
 
 ; Referenced from offset 0xb46 by brne
-Label154:
+TX_SpiReadAck_CopyLoop:
  b3e:   ld      r16, X+
  b40:   st      Y+, r16
  b42:   add     r17, r16
  b44:   dec     r18
- b46:   brne    Label154
+ b46:   brne    TX_SpiReadAck_CopyLoop
  b48:   st      Y+, r17
  b4a:   sts     0x00d2, r28
  b4e:   cli
@@ -1795,7 +1795,7 @@ Label155:
  b56:   andi    r22, 0xfd       ; 253
 
 ; Referenced from offset 0xb18 by rjmp
-Label156:
+TX_ThermalSensorAck:
  b58:   sbrs    r22, 2          ; 0x04 = 4
  b5a:   rjmp    Label158
  b5c:   sbic    PINB, 3         ; 0x08 = 8
@@ -3514,7 +3514,7 @@ Label294:
 
 
 ; Referenced from offset 0x8fe by rcall
-Function3:
+TX_TouchpanelReadAck:
 1634:   ldi     r16, 0x02       ; 2
 1636:   st      Y+, r16
 1638:   mov     r17, r9
@@ -3557,7 +3557,7 @@ Label295:
 
 
 ; Referenced from offset 0x92a by rcall
-Function4:
+TX_KeyboardAck:
 1682:   ldi     r16, 0x02       ; 2
 1684:   st      Y+, r16
 1686:   ldi     r16, 0x21       ; 33

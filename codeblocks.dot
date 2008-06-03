@@ -10,8 +10,8 @@ subgraph cluster_CPU_IRQ {
   Label126;
   Label127;
   Label124;
-  Label128 [
-    label = "Label128 | r23, bit 4"
+  TX_VersionAck [
+    label = "TX_VersionAck | r23, bit 4"
     shape = "record"
     style = filled
     color = "palegreen2"
@@ -31,13 +31,13 @@ subgraph cluster_CPU_IRQ {
     color = "palegreen2"
   ];
   Label133;
-  Label134 [
-    label = "Label134 | r23, bit 3"
+  TX_EepromReadAck [
+    label = "TX_EepromReadAck | r23, bit 3"
     shape = "record"
     style = filled
     color = "palegreen2"
   ];
-  Label135;
+  TX_EepromReadAck_CopyLoop;
   Label136;
   Label137;
   Label137 [
@@ -47,15 +47,15 @@ subgraph cluster_CPU_IRQ {
     color = "lightblue2"
   ];
   Label138;
-  Label139;
-  Label139 [
-    label = "Label139 | r23, bit 6"
+  TX_BatteryAck;
+  TX_BatteryAck [
+    label = "TX_BatteryAck | r23, bit 6"
     shape = "record"
     style = filled
     color = "palegreen2"
   ];
-  Label140;
-  Label141;
+  TX_BatteryAck_2ndBatt;
+  TX_BatteryAck_Out;
   Label142;
   Label143;
   Label143 [
@@ -71,23 +71,23 @@ subgraph cluster_CPU_IRQ {
   TX_DefaultAck_PrepareSend;
   TX_DefaultAck_EnableUart;
   Label150;
-  Label151;
-  Label151 [
-    label = "Label151 | r23, bit 5"
+  TX_BacklightAck;
+  TX_BacklightAck [
+    label = "TX_BacklightAck | r23, bit 5"
     shape = "record"
     style = filled
     color = "palegreen2"
   ];
   Label152;
-  Label153;
-  Label154;
+  TX_SpiReadAck;
+  TX_SpiReadAck_CopyLoop;
   Label155;
-  Label156;
+  TX_ThermalSensorAck;
   Label157;
   Label158;
   Function2;
-  Function3;
-  Function4;
+  TX_TouchpanelReadAck;
+  TX_KeyboardAck;
   Label291;
   Label292;
   Label293;
@@ -375,9 +375,9 @@ subgraph cluster_startup {
   color = yellowgreen;
 
   __vect_Reset
-  _on_other_reset
+  _on_external_reset
   _on_power_on_reset
-  Label120
+  _on_watchdog_reset
   Label121
 }
 
