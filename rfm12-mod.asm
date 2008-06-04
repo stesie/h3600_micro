@@ -73,7 +73,7 @@ main:
    e:   reti
   10:   reti
   12:   rjmp    __vect_Timer0Ovf
-  14:   reti
+  14:   rjmp    __vect_SpiTransferComplete
   16:   rjmp    __vect_UartRxComplete
   18:   rjmp    __vect_UartDataRegEmpty
   1a:   rjmp    __vect_UartTxComplete
@@ -1128,11 +1128,69 @@ Label110:
  676:   out     SREG, r0
  678:   reti
 
+; Referenced from offset 0x14 by rjmp
+__vect_SpiTransferComplete:
+ 67a:   in      r0, SREG
+ 67c:   lds     r19, 0x00f3
+ 680:   sbrs    r19, 0          ; 0x01 = 1
+ 682:   rjmp    SPI_HandleRead
+ 684:   lds     r20, 0x00a1
+ 688:   lds     r21, 0x00a2
+ 68c:   cp      r20, r21
+ 68e:   brne    SPI_SendNextByte
+ 690:   ori     r19, 0x04       ; 4
+ 692:   sts     0x00f3, r19
+ 696:   rjmp    SPI_Int_Out
 
+; Referenced from offset 0x68e by brne
+SPI_SendNextByte:
+ 698:   lds     r30, 0x00a1
+ 69c:   clr     r31
+ 69e:   ld      r19, Z+
+ 6a0:   sts     0x00a1, r30
+ 6a4:   out     SPDR, r19
+ 6a6:   rjmp    SPI_Int_Out
 
+; Referenced from offset 0x682 by rjmp
+SPI_HandleRead:
+ 6a8:   lds     r30, 0x00a3
+ 6ac:   clr     r31
+ 6ae:   in      r21, SPDR
+ 6b0:   st      Z+, r21
+ 6b2:   sts     0x00a3, r30
+ 6b6:   sts     0x00a4, r30
+ 6ba:   lds     r20, 0x00f7
+ 6be:   dec     r20
+ 6c0:   breq    SPI_ReadFinished
+ 6c2:   sts     0x00f7, r20
+ 6c6:   lds     r20, 0x00f5
+ 6ca:   sbrc    r20, 3          ; 0x08 = 8
+ 6cc:   rjmp    Label114
+ 6ce:   sbrc    r20, 2          ; 0x04 = 4
+ 6d0:   rjmp    Label114
+ 6d2:   clr     r20
+ 6d4:   out     SPDR, r20
+ 6d6:   rjmp    SPI_Int_Out
 
+; Referenced from offset 0x6cc by rjmp
+; Referenced from offset 0x6d0 by rjmp
+Label114:
+ 6d8:   ori     r19, 0x0c       ; 12
+ 6da:   sts     0x00f3, r19
+ 6de:   rjmp    SPI_Int_Out
 
-.org 0x6ea
+; Referenced from offset 0x6c0 by breq
+SPI_ReadFinished:
+ 6e0:   ori     r19, 0x04       ; 4
+ 6e2:   sts     0x00f3, r19
+
+; Referenced from offset 0x696 by rjmp
+; Referenced from offset 0x6a6 by rjmp
+; Referenced from offset 0x6d6 by rjmp
+; Referenced from offset 0x6de by rjmp
+SPI_Int_Out:
+ 6e6:   out     SREG, r0
+ 6e8:   reti
 
 ; Referenced from offset 0x00 by rjmp
 __vect_Reset:
@@ -1217,15 +1275,7 @@ Label121:
  752:   out     OCR1BH, r16
  754:   out     OCR1BL, r16
  756:   out     SPSR, r16
-
- ;; original settings (0xd6)
- ;; 1101 0110 = SPI interrupt enable, SPI enable, Master // CPHA, SPR1
- ;; -> prescale /64
-
- ;; modification:
- ;; no SPI interrupt, SPI mode 0 -> CPHA off
- ;; 0101 0010  -> 0x52
- 758:   ldi     r17, 0x52
+ 758:   ldi     r17, 0xd6       ; 214
  75a:   out     SPCR, r17
  75c:   out     EECR, r16
  75e:   ldi     r17, 0x98       ; 152
@@ -2610,13 +2660,539 @@ Label239:
 ; Referenced from offset 0x1096 by rjmp
 ; Referenced from offset 0x10aa by rjmp
 ; Referenced from offset 0x10be by rjmp
-
 Label240:
-        rjmp msg_handler_start
+main_spi_start:
+10d0:   lds     r16, 0x00f3
+10d4:   sbrc    r16, 7          ; 0x80 = 128
+10d6:   rjmp    SPI_Block_Intermediate
+10d8:   lds     r17, 0x00f4
+10dc:   andi    r17, 0x0f       ; 15
+10de:   brne    Label241
+10e0:   rjmp    SPI_Block_Intermediate
 
+; Referenced from offset 0x10de by brne
+Label241:
+10e2:   sbis    SPCR, 6         ; 0x40 = 64
+10e4:   sbi     SPCR, 6         ; 0x40 = 64
+10e6:   lds     r18, 0x00f4
+10ea:   sbrs    r18, 1          ; 0x02 = 2
+10ec:   rjmp    Label242
+10ee:   ori     r16, 0x81       ; 129
+10f0:   sts     0x00f3, r16
+10f4:   andi    r18, 0xfd       ; 253
+10f6:   sts     0x00f4, r18
+10fa:   lds     r17, 0x00f6
+10fe:   andi    r17, 0x7f       ; 127
+1100:   ori     r17, 0x01       ; 1
+1102:   sts     0x00f6, r17
+1106:   ldi     r17, 0x11       ; 17
+1108:   sts     0x00fc, r17
+110c:   lds     r17, 0x00f5
+1110:   ori     r17, 0x02       ; 2
+1112:   sts     0x00f5, r17
+1116:   cbi     PORTD, 5        ; 0x20 = 32
+1118:   clr     r16
+111a:   sts     0x00a1, r16
+111e:   sts     0x00a2, r16
+1122:   ldi     r16, 0x06       ; 6
+1124:   out     SPDR, r16
+1126:   rjmp    SPI_Block_Intermediate
 
-.org 0x14b8
+; Referenced from offset 0x10ec by rjmp
+Label242:
+1128:   sbrs    r18, 0          ; 0x01 = 1
+112a:   rjmp    Label245
+112c:   ori     r16, 0x81       ; 129
+112e:   sts     0x00f3, r16
+1132:   andi    r18, 0xfe       ; 254
+1134:   sts     0x00f4, r18
+1138:   lds     r17, 0x00f5
+113c:   ori     r17, 0x01       ; 1
+113e:   sts     0x00f5, r17
+1142:   cbi     PORTD, 5        ; 0x20 = 32
+1144:   clr     r29
+1146:   ldi     r28, 0x90       ; 144
+1148:   sts     0x00a1, r28
+114c:   lds     r17, 0x00fb
+1150:   cpi     r17, 0x00       ; 0
+1152:   breq    Label244
+1154:   lds     r17, 0x00f9
+1158:   st      Y+, r17
+115a:   sts     0x00a2, r28
+115e:   lds     r16, 0x00fb
+1162:   sts     0x00f7, r16
+1166:   ldi     r16, 0x03       ; 3
+1168:   lds     r17, 0x00fa
+116c:   cpi     r17, 0x01       ; 1
+116e:   brne    Label243
+1170:   ori     r16, 0x08       ; 8
 
+; Referenced from offset 0x116e by brne
+Label243:
+1172:   out     SPDR, r16
+1174:   rjmp    SPI_Block_Intermediate
+
+; Referenced from offset 0x1152 by breq
+Label244:
+1176:   sts     0x00a2, r28
+117a:   ldi     r16, 0x01       ; 1
+117c:   sts     0x00f7, r16
+1180:   ldi     r16, 0x05       ; 5
+1182:   out     SPDR, r16
+1184:   rjmp    SPI_Block_Intermediate
+
+; Referenced from offset 0x112a by rjmp
+Label245:
+1186:   sbrs    r18, 2          ; 0x04 = 4
+1188:   rjmp    Label247
+118a:   ori     r16, 0x81       ; 129
+118c:   sts     0x00f3, r16
+1190:   andi    r18, 0xfb       ; 251
+1192:   sts     0x00f4, r18
+1196:   ldi     r17, 0x02       ; 2
+1198:   sts     0x00fc, r17
+119c:   lds     r17, 0x00f5
+11a0:   ori     r17, 0x04       ; 4
+11a2:   sts     0x00f5, r17
+11a6:   cbi     PORTD, 5        ; 0x20 = 32
+11a8:   nop
+11aa:   nop
+11ac:   nop
+11ae:   sbi     PORTD, 5        ; 0x20 = 32
+11b0:   ldi     r16, 0x30       ; 48
+
+; Referenced from offset 0x11b4 by brne
+Label246:
+11b2:   dec     r16
+11b4:   brne    Label246
+11b6:   clr     r29
+11b8:   ldi     r28, 0x90       ; 144
+11ba:   sts     0x00a1, r28
+11be:   ldi     r16, 0x10       ; 16
+11c0:   st      Y+, r16
+11c2:   st      Y+, r16
+11c4:   sts     0x00a2, r28
+11c8:   ldi     r16, 0x06       ; 6
+11ca:   sts     0x00f7, r16
+11ce:   ldi     r16, 0xa1       ; 161
+11d0:   out     SPDR, r16
+11d2:   rjmp    SPI_Block_Intermediate
+
+; Referenced from offset 0x1188 by rjmp
+Label247:
+11d4:   sbrs    r18, 3          ; 0x08 = 8
+11d6:   rjmp    SPI_Block_Intermediate
+11d8:   ori     r16, 0x81       ; 129
+11da:   sts     0x00f3, r16
+11de:   andi    r18, 0xf7       ; 247
+11e0:   sts     0x00f4, r18
+11e4:   ldi     r17, 0x03       ; 3
+11e6:   sts     0x00fc, r17
+11ea:   lds     r17, 0x00f5
+11ee:   ori     r17, 0x08       ; 8
+11f0:   sts     0x00f5, r17
+11f4:   cbi     PORTD, 5        ; 0x20 = 32
+11f6:   nop
+11f8:   nop
+11fa:   nop
+11fc:   sbi     PORTD, 5        ; 0x20 = 32
+11fe:   ldi     r16, 0x30       ; 48
+
+; Referenced from offset 0x1202 by brne
+Label248:
+1200:   dec     r16
+1202:   brne    Label248
+1204:   clr     r29
+1206:   ldi     r28, 0x90       ; 144
+1208:   sts     0x00a1, r28
+120c:   ldi     r16, 0x20       ; 32
+120e:   st      Y+, r16
+1210:   st      Y+, r16
+1212:   sts     0x00a2, r28
+1216:   ldi     r16, 0x07       ; 7
+1218:   sts     0x00f7, r16
+121c:   ldi     r16, 0xa1       ; 161
+121e:   out     SPDR, r16
+1220:   rjmp    SPI_Block_Intermediate
+
+; Referenced from offset 0x10d6 by rjmp
+; Referenced from offset 0x10e0 by rjmp
+; Referenced from offset 0x1126 by rjmp
+; Referenced from offset 0x1174 by rjmp
+; Referenced from offset 0x1184 by rjmp
+; Referenced from offset 0x11d2 by rjmp
+; Referenced from offset 0x11d6 by rjmp
+; Referenced from offset 0x1220 by rjmp
+SPI_Block_Intermediate:
+1222:   lds     r16, 0x00f3
+1226:   sbrs    r16, 2          ; 0x04 = 4
+1228:   rjmp    SPI_Block_Out
+122a:   lds     r17, 0x00f5
+122e:   sbrs    r17, 0          ; 0x01 = 1
+1230:   rjmp    Label254
+1232:   sbrc    r16, 0          ; 0x01 = 1
+1234:   rjmp    Label250
+1236:   sbrc    r16, 1          ; 0x02 = 2
+1238:   rjmp    Label251
+
+; Referenced from offset 0x1234 by rjmp
+Label250:
+123a:   andi    r16, 0xfa       ; 250
+123c:   ori     r16, 0x02       ; 2
+123e:   sts     0x00f3, r16
+1242:   ldi     r16, 0xa5       ; 165
+1244:   sts     0x00a3, r16
+1248:   clr     r16
+124a:   sts     0x00f8, r16
+124e:   out     SPDR, r16
+1250:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x1238 by rjmp
+Label251:
+1252:   sbi     PORTD, 5        ; 0x20 = 32
+1254:   andi    r16, 0x79       ; 121
+1256:   sts     0x00f3, r16
+125a:   andi    r17, 0xfe       ; 254
+125c:   sts     0x00f5, r17
+1260:   ldi     r27, 0x01       ; 1
+1262:   ldi     r26, 0x00       ; 0
+1264:   clr     r29
+1266:   ldi     r28, 0xa5       ; 165
+1268:   lds     r18, 0x00a4
+126c:   clr     r17
+
+; Referenced from offset 0x1276 by brne
+Label252:
+126e:   ld      r16, Y+
+1270:   st      X+, r16
+1272:   inc     r17
+1274:   cp      r18, r28
+1276:   brne    Label252
+1278:   sts     0x00f8, r17
+127c:   sbic    PINB, 3         ; 0x08 = 8
+127e:   rjmp    SPI_Block_Out
+1280:   ori     r22, 0x02       ; 2
+1282:   lds     r16, 0x00ff
+1286:   andi    r16, 0x03       ; 3
+1288:   breq    Label253
+128a:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x1288 by breq
+Label253:
+128c:   ori     r16, 0x01       ; 1
+128e:   sts     0x00ff, r16
+1292:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x1230 by rjmp
+Label254:
+1294:   sbrs    r17, 1          ; 0x02 = 2
+1296:   rjmp    Label260
+1298:   sbi     PORTD, 5        ; 0x20 = 32
+129a:   lds     r18, 0x00f6
+129e:   sbrc    r18, 0          ; 0x01 = 1
+12a0:   rjmp    Label255
+12a2:   sbrc    r18, 1          ; 0x02 = 2
+12a4:   rjmp    Label259
+
+; Referenced from offset 0x12a0 by rjmp
+Label255:
+12a6:   andi    r16, 0xfb       ; 251
+12a8:   sts     0x00f3, r16
+12ac:   andi    r18, 0xfe       ; 254
+12ae:   ori     r18, 0x02       ; 2
+12b0:   sts     0x00f6, r18
+12b4:   clr     r29
+12b6:   ldi     r28, 0x90       ; 144
+12b8:   sts     0x00a1, r28
+12bc:   ldi     r27, 0x01       ; 1
+12be:   ldi     r26, 0x13       ; 19
+12c0:   ld      r18, X+
+12c2:   cpi     r18, 0x00       ; 0
+12c4:   breq    Label258
+12c6:   ld      r17, X+
+12c8:   st      Y+, r17
+12ca:   ld      r16, X+
+
+; Referenced from offset 0x12d2 by brne
+Label256:
+12cc:   ld      r17, X+
+12ce:   st      Y+, r17
+12d0:   dec     r18
+12d2:   brne    Label256
+12d4:   sts     0x00a2, r28
+12d8:   cbi     PORTD, 5        ; 0x20 = 32
+12da:   mov     r17, r16
+12dc:   ldi     r16, 0x02       ; 2
+12de:   cpi     r17, 0x01       ; 1
+12e0:   brne    Label257
+12e2:   ori     r16, 0x08       ; 8
+
+; Referenced from offset 0x12e0 by brne
+Label257:
+12e4:   out     SPDR, r16
+12e6:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x12c4 by breq
+Label258:
+12e8:   ld      r17, X+
+12ea:   st      Y+, r17
+12ec:   sts     0x00a2, r28
+12f0:   cbi     PORTD, 5        ; 0x20 = 32
+12f2:   ldi     r16, 0x01       ; 1
+12f4:   out     SPDR, r16
+12f6:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x12a4 by rjmp
+Label259:
+12f8:   sbrs    r18, 7          ; 0x80 = 128
+12fa:   rjmp    SPI_Block_Out
+12fc:   andi    r17, 0xfd       ; 253
+12fe:   sts     0x00f5, r17
+1302:   andi    r18, 0x7d       ; 125
+1304:   sts     0x00f6, r18
+1308:   andi    r16, 0x7a       ; 122
+130a:   sts     0x00f3, r16
+130e:   sbic    PINB, 3         ; 0x08 = 8
+1310:   rjmp    SPI_Block_Out
+1312:   lds     r16, 0x0067	; queue SPI-Write default ack ...
+1316:   ori     r16, 0x08       ; 8
+1318:   sts     0x0067, r16
+131c:   ori     r23, 0x80       ; 128
+131e:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x1296 by rjmp
+Label260:
+1320:   sbrs    r17, 2          ; 0x04 = 4
+1322:   rjmp    Label266
+1324:   sbrc    r16, 0          ; 0x01 = 1
+1326:   rjmp    Label261
+1328:   sbrc    r16, 1          ; 0x02 = 2
+132a:   rjmp    Label262
+
+; Referenced from offset 0x1326 by rjmp
+Label261:
+132c:   lds     r18, 0x00f6
+1330:   sbrs    r18, 7          ; 0x80 = 128
+1332:   rjmp    SPI_Block_Out
+1334:   andi    r16, 0xfa       ; 250
+1336:   ori     r16, 0x02       ; 2
+1338:   sts     0x00f3, r16
+133c:   ldi     r16, 0xa5       ; 165
+133e:   sts     0x00a3, r16
+1342:   clr     r16
+1344:   sts     0x00f8, r16
+1348:   out     SPDR, r16
+134a:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x132a by rjmp
+Label262:
+134c:   sbrs    r16, 3          ; 0x08 = 8
+134e:   rjmp    Label264
+1350:   andi    r16, 0xf3       ; 243
+1352:   sts     0x00f3, r16
+1356:   ldi     r16, 0x28       ; 40
+
+; Referenced from offset 0x135a by brne
+Label263:
+1358:   dec     r16
+135a:   brne    Label263
+135c:   out     SPDR, r16
+135e:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x134e by rjmp
+Label264:
+1360:   andi    r16, 0x79       ; 121
+1362:   sts     0x00f3, r16
+1366:   andi    r17, 0xfb       ; 251
+1368:   sts     0x00f5, r17
+136c:   lds     r18, 0x00f6
+1370:   andi    r18, 0x7f       ; 127
+1372:   sts     0x00f6, r18
+1376:   lds     r16, 0x00ff
+137a:   ori     r16, 0x80       ; 128
+137c:   sts     0x00ff, r16
+1380:   clr     r29
+1382:   ldi     r28, 0xa5       ; 165
+1384:   ld      r16, Y+
+1386:   cpi     r16, 0xa1       ; 161
+1388:   brne    Label265
+138a:   ld      r16, Y+
+138c:   cpi     r16, 0x13       ; 19
+138e:   brne    Label265
+1390:   mov     r17, r16
+1392:   ld      r16, Y+
+1394:   add     r17, r16
+1396:   ld      r16, Y+
+1398:   add     r17, r16
+139a:   ld      r16, Y+
+139c:   add     r17, r16
+139e:   ld      r16, Y+
+13a0:   cp      r17, r16
+13a2:   brne    Label265
+13a4:   ldi     r28, 0xa5       ; 165
+13a6:   inc     r28
+13a8:   inc     r28
+13aa:   ld      r16, Y+
+13ac:   sts     0x00bc, r16
+13b0:   ld      r16, Y+
+13b2:   sts     0x00bd, r16
+13b6:   ld      r16, Y+
+13b8:   sts     0x00be, r16
+13bc:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x1388 by brne
+; Referenced from offset 0x138e by brne
+; Referenced from offset 0x13a2 by brne
+Label265:
+13be:   clr     r16
+13c0:   sts     0x00bc, r16
+13c4:   sts     0x00bd, r16
+13c8:   sts     0x00be, r16
+13cc:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x1322 by rjmp
+Label266:
+13ce:   sbrs    r17, 3          ; 0x08 = 8
+13d0:   rjmp    SPI_Block_Out
+13d2:   sbrc    r16, 0          ; 0x01 = 1
+13d4:   rjmp    Label267
+13d6:   sbrc    r16, 1          ; 0x02 = 2
+13d8:   rjmp    Label268
+
+; Referenced from offset 0x13d4 by rjmp
+Label267:
+13da:   lds     r18, 0x00f6
+13de:   sbrs    r18, 7          ; 0x80 = 128
+13e0:   rjmp    SPI_Block_Out
+13e2:   andi    r16, 0xfa       ; 250
+13e4:   ori     r16, 0x02       ; 2
+13e6:   sts     0x00f3, r16
+13ea:   ldi     r16, 0xa5       ; 165
+13ec:   sts     0x00a3, r16
+13f0:   clr     r16
+13f2:   sts     0x00f8, r16
+13f6:   out     SPDR, r16
+13f8:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x13d8 by rjmp
+Label268:
+13fa:   sbrs    r16, 3          ; 0x08 = 8
+13fc:   rjmp    Label270
+13fe:   andi    r16, 0xf3       ; 243
+1400:   sts     0x00f3, r16
+1404:   ldi     r16, 0x28       ; 40
+
+; Referenced from offset 0x1408 by brne
+Label269:
+1406:   dec     r16
+1408:   brne    Label269
+140a:   out     SPDR, r16
+140c:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x13fc by rjmp
+Label270:
+140e:   andi    r16, 0x79       ; 121
+1410:   sts     0x00f3, r16
+1414:   andi    r17, 0xf7       ; 247
+1416:   sts     0x00f5, r17
+141a:   lds     r18, 0x00f6
+141e:   andi    r18, 0x7f       ; 127
+1420:   sts     0x00f6, r18
+1424:   clr     r29
+1426:   ldi     r28, 0xa5       ; 165
+1428:   ld      r16, Y+
+142a:   cpi     r16, 0xa1       ; 161
+142c:   brne    Label271
+142e:   ld      r16, Y+
+1430:   cpi     r16, 0x24       ; 36
+1432:   brne    Label271
+1434:   mov     r17, r16
+1436:   ld      r16, Y+
+1438:   add     r17, r16
+143a:   ld      r16, Y+
+143c:   add     r17, r16
+143e:   ld      r16, Y+
+1440:   add     r17, r16
+1442:   ld      r16, Y+
+1444:   add     r17, r16
+1446:   ld      r16, Y+
+1448:   cp      r17, r16
+144a:   brne    Label271
+144c:   ldi     r28, 0xa5       ; 165
+144e:   inc     r28
+1450:   inc     r28
+1452:   ld      r16, Y+
+1454:   sts     0x00b6, r16
+1458:   ld      r16, Y+
+145a:   sts     0x00b7, r16
+145e:   ld      r16, Y+
+1460:   sts     0x00b8, r16
+1464:   ld      r7, Y+
+1466:   lds     r16, 0x00ff
+146a:   andi    r16, 0xfe       ; 254
+146c:   ori     r16, 0x02       ; 2
+146e:   sts     0x00ff, r16
+1472:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x142c by brne
+; Referenced from offset 0x1432 by brne
+; Referenced from offset 0x144a by brne
+Label271:
+1474:   lds     r16, 0x00ff
+1478:   sbrc    r16, 0          ; 0x01 = 1
+147a:   rjmp    Label272
+147c:   ori     r16, 0x01       ; 1
+147e:   andi    r16, 0xfd       ; 253
+1480:   sts     0x00ff, r16
+1484:   ldi     r16, 0x05       ; 5
+1486:   sts     0x00b9, r16
+148a:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x147a by rjmp
+Label272:
+148c:   lds     r17, 0x00b9
+1490:   dec     r17
+1492:   breq    Label273
+1494:   sts     0x00b9, r17
+1498:   andi    r16, 0xfd       ; 253
+149a:   sts     0x00ff, r16
+149e:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x1492 by breq
+Label273:
+14a0:   andi    r16, 0xfc       ; 252
+14a2:   sts     0x00ff, r16
+14a6:   clr     r16
+14a8:   clr     r7
+14aa:   sts     0x00b6, r16
+14ae:   sts     0x00b7, r16
+14b2:   sts     0x00b8, r16
+14b6:   rjmp    SPI_Block_Out
+
+; Referenced from offset 0x1228 by rjmp
+; Referenced from offset 0x1250 by rjmp
+; Referenced from offset 0x127e by rjmp
+; Referenced from offset 0x128a by rjmp
+; Referenced from offset 0x1292 by rjmp
+; Referenced from offset 0x12e6 by rjmp
+; Referenced from offset 0x12f6 by rjmp
+; Referenced from offset 0x12fa by rjmp
+; Referenced from offset 0x1310 by rjmp
+; Referenced from offset 0x131e by rjmp
+; Referenced from offset 0x1332 by rjmp
+; Referenced from offset 0x134a by rjmp
+; Referenced from offset 0x135e by rjmp
+; Referenced from offset 0x13bc by rjmp
+; Referenced from offset 0x13cc by rjmp
+; Referenced from offset 0x13d0 by rjmp
+; Referenced from offset 0x13e0 by rjmp
+; Referenced from offset 0x13f8 by rjmp
+; Referenced from offset 0x140c by rjmp
+; Referenced from offset 0x1472 by rjmp
+; Referenced from offset 0x148a by rjmp
+; Referenced from offset 0x149e by rjmp
+; Referenced from offset 0x14b6 by rjmp
+SPI_Block_Out:
 msg_handler_start:
 14b8:   lds     r16, 0x0065
 14bc:   sbrs    r16, 6          ; 0x40 = 64
@@ -2676,17 +3252,17 @@ Label280:
 
 ; Referenced from offset 0x1502 by brne
 Label281:
-1508:   nop
-150a:   nop
-150c:   nop
-150e:   nop
+1508:   cpi     r16, 0xb0       ; 176
+150a:   brne    Label282
+150c:   rcall   RX_Handler_MSG_SPI_READ
+150e:   rjmp    RX_Handler_DEMUX_Out
 
 ; Referenced from offset 0x150a by brne
 Label282:
-1510:   nop
-1512:   nop
-1514:   nop
-1516:   nop
+1510:   cpi     r16, 0xc0       ; 192
+1512:   brne    Label283
+1514:   rcall   RX_Handler_MSG_SPI_WRITE
+1516:   rjmp    RX_Handler_DEMUX_Out
 
 ; Referenced from offset 0x1512 by brne
 Label283:
@@ -3258,8 +3834,106 @@ Label312:
 18c2:   ret
 
 
+; Referenced from offset 0x150c by rcall
+RX_Handler_MSG_SPI_READ:
+18c4:   lds     r16, 0x00f4
+18c8:   sbrc    r16, 0          ; 0x01 = 1
+18ca:   rjmp    RX_SpiRead_Out
+18cc:   lds     r16, 0x00f5
+18d0:   sbrc    r16, 0          ; 0x01 = 1
+18d2:   rjmp    RX_SpiRead_Out
+18d4:   lds     r28, 0x00ef
+18d8:   clr     r29
+18da:   ld      r16, Y+
+18dc:   cpi     r16, 0xff       ; 255
+18de:   brne    Label313
+18e0:   ld      r17, Y+
+18e2:   dec     r28
+18e4:   cpi     r17, 0xff       ; 255
+18e6:   brne    Label313
+18e8:   clr     r16
+18ea:   rjmp    Label314
 
-.org 0x1970
+; Referenced from offset 0x18de by brne
+; Referenced from offset 0x18e6 by brne
+Label313:
+18ec:   sts     0x00f9, r16
+18f0:   ld      r16, Y+
+18f2:   sts     0x00fa, r16
+18f6:   ld      r16, Y+
+
+; Referenced from offset 0x18ea by rjmp
+Label314:
+18f8:   sts     0x00fb, r16
+18fc:   lds     r16, 0x00f4
+1900:   ori     r16, 0x01       ; 1
+1902:   sts     0x00f4, r16
+1906:   lds     r16, 0x0065
+190a:   andi    r16, 0xbf       ; 191
+190c:   sts     0x0065, r16
+
+; Referenced from offset 0x18ca by rjmp
+; Referenced from offset 0x18d2 by rjmp
+RX_SpiRead_Out:
+1910:   ret
+
+
+; Referenced from offset 0x1514 by rcall
+RX_Handler_MSG_SPI_WRITE:
+1912:   lds     r16, 0x00f4
+1916:   sbrc    r16, 1          ; 0x02 = 2
+1918:   rjmp    RX_SpiWrite_Out
+191a:   lds     r16, 0x00f5
+191e:   sbrc    r16, 1          ; 0x02 = 2
+1920:   rjmp    RX_SpiWrite_Out
+1922:   ldi     r26, 0x13       ; 19
+1924:   ldi     r27, 0x01       ; 1
+1926:   ldi     r28, 0xde       ; 222
+1928:   clr     r29
+192a:   ld      r16, Y+
+192c:   andi    r16, 0x0f       ; 15
+192e:   subi    r16, 0x02       ; 2
+1930:   st      X+, r16
+1932:   ld      r17, Y+
+1934:   cpi     r17, 0xff       ; 255
+1936:   brne    Label316
+1938:   ld      r18, Y+
+193a:   dec     r28
+193c:   cpi     r18, 0xff       ; 255
+193e:   brne    Label316
+1940:   dec     r26
+1942:   clr     r16
+1944:   st      X+, r16
+1946:   inc     r16
+1948:   inc     r28
+194a:   rjmp    Label317
+
+; Referenced from offset 0x1936 by brne
+; Referenced from offset 0x193e by brne
+Label316:
+194c:   st      X+, r17
+194e:   ld      r17, Y+
+1950:   st      X+, r17
+
+; Referenced from offset 0x194a by rjmp
+; Referenced from offset 0x1958 by brne
+Label317:
+1952:   ld      r17, Y+
+1954:   st      X+, r17
+1956:   dec     r16
+1958:   brne    Label317
+195a:   lds     r16, 0x00f4
+195e:   ori     r16, 0x02       ; 2
+1960:   sts     0x00f4, r16
+1964:   lds     r16, 0x0065
+1968:   andi    r16, 0xbf       ; 191
+196a:   sts     0x0065, r16
+
+; Referenced from offset 0x1918 by rjmp
+; Referenced from offset 0x1920 by rjmp
+RX_SpiWrite_Out:
+196e:   ret
+
 
 ; Referenced from offset 0x151c by rcall
 RX_Handler_MSG_THERMAL_SENSOR:
