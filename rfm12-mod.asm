@@ -103,13 +103,13 @@ Label2:
   3c:   sbi     PORTC, 4        ; 0x10 = 16
   3e:   sbis    PINB, 2         ; 0x04 = 4
   40:   rjmp    KeyPress_IRQ
-  42:   rjmp    Label4
+  42:   rjmp    __vect_ExternalInt0_out
 
 ; Referenced from offset 0x40 by rjmp
 KeyPress_IRQ:
   44:   lds     r19, 0x0068
   48:   andi    r19, 0x12       ; 18
-  4a:   brne    Label4
+  4a:   brne    __vect_ExternalInt0_out
   4c:   clr     r19
   4e:   sts     0x0069, r19
   52:   sts     0x006c, r19
@@ -123,7 +123,7 @@ KeyPress_IRQ:
 
 ; Referenced from offset 0x42 by rjmp
 ; Referenced from offset 0x4a by brne
-Label4:
+__vect_ExternalInt0_out:
   6a:   out     SREG, r0
   6c:   reti
 
@@ -679,15 +679,15 @@ __vect_UartAdcComplete:
  3a2:   andi    r21, 0x03       ; 3
  3a4:   andi    r24, 0x7f       ; 127
  3a6:   sbrc    r24, 6          ; 0x40 = 64
- 3a8:   rjmp    Label109
+ 3a8:   rjmp    ADC_Store_BattTemperature
  3aa:   sbrc    r24, 5          ; 0x20 = 32
- 3ac:   rjmp    Label102
+ 3ac:   rjmp    ADC_Store_LightSensor
  3ae:   sbrc    r24, 4          ; 0x10 = 16
- 3b0:   rjmp    Label98
+ 3b0:   rjmp    ADC_Store_ChargerCurrent
  3b2:   sbrc    r24, 3          ; 0x08 = 8
- 3b4:   rjmp    Label89
+ 3b4:   rjmp    ADC_Store_BattVoltage
  3b6:   sbrc    r24, 2          ; 0x04 = 4
- 3b8:   rjmp    Label71
+ 3b8:   rjmp    ADC_Store_KeySignal
  3ba:   sbrc    r24, 1          ; 0x02 = 2
  3bc:   rjmp    Label65
  3be:   sbrc    r24, 0          ; 0x01 = 1
@@ -759,7 +759,7 @@ Label70:
  430:   reti
 
 ; Referenced from offset 0x3b8 by rjmp
-Label71:
+ADC_Store_KeySignal:
  432:   andi    r24, 0xfb       ; 251
  434:   lsr     r20
  436:   lsr     r20
@@ -920,7 +920,7 @@ Label88:
  50e:   rjmp    Label86
 
 ; Referenced from offset 0x3b4 by rjmp
-Label89:
+ADC_Store_BattVoltage:
  510:   andi    r24, 0xf7       ; 247
  512:   lds     r19, 0x007f
  516:   cpi     r19, 0x00       ; 0
@@ -1019,7 +1019,7 @@ Label97:
  5c8:   reti
 
 ; Referenced from offset 0x3b0 by rjmp
-Label98:
+ADC_Store_ChargerCurrent:
  5ca:   andi    r24, 0xef       ; 239
  5cc:   sts     0x0083, r20
  5d0:   sts     0x0084, r21
@@ -1052,7 +1052,7 @@ Label101:
  5fc:   reti
 
 ; Referenced from offset 0x3ac by rjmp
-Label102:
+ADC_Store_LightSensor:
  5fe:   andi    r24, 0xdf       ; 223
  600:   lsr     r20
  602:   lsr     r20
@@ -1110,7 +1110,7 @@ Label108:
  656:   reti
 
 ; Referenced from offset 0x3a8 by rjmp
-Label109:
+ADC_Store_BattTemperature:
  658:   andi    r24, 0xbf       ; 191
  65a:   sts     0x0087, r20
  65e:   sts     0x0088, r21
@@ -1828,25 +1828,25 @@ Label157:
 Label158:
 main_adc_start:
  b9a:   sbrc    r24, 7          ; 0x80 = 128
- b9c:   rjmp    Label170
+ b9c:   rjmp    ADC_Block_Out
  b9e:   sbic    ADCSR, 7        ; 0x80 = 128
- ba0:   rjmp    Label159
+ ba0:   rjmp    ADC_AlreadyEnabled
  ba2:   ldi     r16, 0x9d       ; 157
  ba4:   out     ADCSR, r16
 
 ; Referenced from offset 0xba0 by rjmp
-Label159:
+ADC_AlreadyEnabled:
  ba6:   sbrs    r25, 0          ; 0x01 = 1
  ba8:   rjmp    Label162
  baa:   ori     r24, 0x81       ; 129
  bac:   andi    r25, 0xfe       ; 254
  bae:   mov     r16, r9
  bb0:   sbrs    r16, 1          ; 0x02 = 2
- bb2:   rjmp    Label160
+ bb2:   rjmp    ADC_ConfigureTP_SenseX
  bb4:   rjmp    Label161
 
 ; Referenced from offset 0xbb2 by rjmp
-Label160:
+ADC_ConfigureTP_SenseX:
  bb6:   sbi     PORTC, 3        ; 0x08 = 8
  bb8:   cbi     PORTC, 2        ; 0x04 = 4
  bba:   sbi     PORTC, 1        ; 0x02 = 2
@@ -1854,12 +1854,12 @@ Label160:
 
 ; Referenced from offset 0xbb4 by rjmp
 Label161:
- bbe:   rcall   Function1
+ bbe:   rcall   DelayLoop
  bc0:   ldi     r16, 0x07       ; 7
  bc2:   out     ADMUX, r16
  bc4:   ldi     r16, 0xdd       ; 221
  bc6:   out     ADCSR, r16
- bc8:   rjmp    Label170
+ bc8:   rjmp    ADC_Block_Out
 
 ; Referenced from offset 0xba8 by rjmp
 Label162:
@@ -1869,7 +1869,7 @@ Label162:
  bd0:   andi    r25, 0xfd       ; 253
  bd2:   mov     r16, r9
  bd4:   sbrs    r16, 1          ; 0x02 = 2
- bd6:   rjmp    Label163
+ bd6:   rjmp    ADC_ConfigureTP_SenseY
  bd8:   cbi     PORTC, 2        ; 0x04 = 4
  bda:   sbi     PORTC, 0        ; 0x01 = 1
  bdc:   sbi     PORTC, 1        ; 0x02 = 2
@@ -1877,7 +1877,7 @@ Label162:
  be0:   rjmp    Label164
 
 ; Referenced from offset 0xbd6 by rjmp
-Label163:
+ADC_ConfigureTP_SenseY:
  be2:   sbi     PORTC, 0        ; 0x01 = 1
  be4:   cbi     PORTC, 1        ; 0x02 = 2
  be6:   sbi     PORTC, 2        ; 0x04 = 4
@@ -1885,12 +1885,12 @@ Label163:
 
 ; Referenced from offset 0xbe0 by rjmp
 Label164:
- bea:   rcall   Function1
+ bea:   rcall   DelayLoop
  bec:   ldi     r16, 0x06       ; 6
  bee:   out     ADMUX, r16
  bf0:   ldi     r16, 0xdd       ; 221
  bf2:   out     ADCSR, r16
- bf4:   rjmp    Label170
+ bf4:   rjmp    ADC_Block_Out
 
 ; Referenced from offset 0xbcc by rjmp
 Label165:
@@ -1898,11 +1898,11 @@ Label165:
  bf8:   rjmp    Label166
  bfa:   ori     r24, 0x84       ; 132
  bfc:   andi    r25, 0xfb       ; 251
- bfe:   ldi     r16, 0x05       ; 5
+ bfe:   ldi     r16, 0x05       ; 5 -> Key signal input
  c00:   out     ADMUX, r16
  c02:   ldi     r16, 0xdd       ; 221
  c04:   out     ADCSR, r16
- c06:   rjmp    Label170
+ c06:   rjmp    ADC_Block_Out
 
 ; Referenced from offset 0xbf8 by rjmp
 Label166:
@@ -1910,11 +1910,11 @@ Label166:
  c0a:   rjmp    Label167
  c0c:   ori     r24, 0x88       ; 136
  c0e:   andi    r25, 0xf7       ; 247
- c10:   ldi     r16, 0x04       ; 4
+ c10:   ldi     r16, 0x04       ; 4 -> main batt. 2/3 voltage sense
  c12:   out     ADMUX, r16
  c14:   ldi     r16, 0xdd       ; 221
  c16:   out     ADCSR, r16
- c18:   rjmp    Label170
+ c18:   rjmp    ADC_Block_Out
 
 ; Referenced from offset 0xc0a by rjmp
 Label167:
@@ -1922,11 +1922,11 @@ Label167:
  c1c:   rjmp    Label168
  c1e:   ori     r24, 0x90       ; 144
  c20:   andi    r25, 0xef       ; 239
- c22:   ldi     r16, 0x03       ; 3
+ c22:   ldi     r16, 0x03       ; 3 -> charger current monitor
  c24:   out     ADMUX, r16
  c26:   ldi     r16, 0xdd       ; 221
  c28:   out     ADCSR, r16
- c2a:   rjmp    Label170
+ c2a:   rjmp    ADC_Block_Out
 
 ; Referenced from offset 0xc1c by rjmp
 Label168:
@@ -1934,23 +1934,23 @@ Label168:
  c2e:   rjmp    Label169
  c30:   ori     r24, 0xa0       ; 160
  c32:   andi    r25, 0xdf       ; 223
- c34:   ldi     r16, 0x02       ; 2
+ c34:   ldi     r16, 0x02       ; 2 -> Light sensor
  c36:   out     ADMUX, r16
  c38:   ldi     r16, 0xdd       ; 221
  c3a:   out     ADCSR, r16
- c3c:   rjmp    Label170
+ c3c:   rjmp    ADC_Block_Out
 
 ; Referenced from offset 0xc2e by rjmp
 Label169:
  c3e:   sbrs    r25, 6          ; 0x40 = 64
- c40:   rjmp    Label170
+ c40:   rjmp    ADC_Block_Out
  c42:   ori     r24, 0xc0       ; 192
  c44:   andi    r25, 0xbf       ; 191
- c46:   ldi     r16, 0x01       ; 1
+ c46:   ldi     r16, 0x01       ; 1 -> Batt. temp. sensor
  c48:   out     ADMUX, r16
  c4a:   ldi     r16, 0xdd       ; 221
  c4c:   out     ADCSR, r16
- c4e:   rjmp    Label170
+ c4e:   rjmp    ADC_Block_Out
 
 ; Referenced from offset 0xb9c by rjmp
 ; Referenced from offset 0xbc8 by rjmp
@@ -1961,7 +1961,7 @@ Label169:
 ; Referenced from offset 0xc3c by rjmp
 ; Referenced from offset 0xc40 by rjmp
 ; Referenced from offset 0xc4e by rjmp
-Label170:
+ADC_Block_Out:
 	rjmp	main_charging_logic_start
 
 
@@ -2841,7 +2841,7 @@ SleepEnable_PowerDown:
 
 ; Referenced from offset 0xbbe by rcall
 ; Referenced from offset 0xbea by rcall
-Function1:
+DelayLoop:
 1604:   ser     r16
 
 ; Referenced from offset 0x1608 by brne

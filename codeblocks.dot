@@ -102,20 +102,20 @@ subgraph cluster_adc {
   color = sandybrown;
 
   main_adc_start;
-  Label159;
-  Label160;
+  ADC_AlreadyEnabled;
+  ADC_ConfigureTP_SenseX;
   Label161;
   Label162;
-  Label163;
+  ADC_ConfigureTP_SenseY;
   Label164;
   Label165;
   Label166;
   Label167;
   Label168;
   Label169;
-  Label170;
+  ADC_Block_Out;
   Label290;
-  Function1;
+  DelayLoop;
 }
 
 subgraph cluster_notif_led {
@@ -417,7 +417,7 @@ subgraph cluster_adc_int {
   Label68;
   Label69;
   Label70;
-  Label71;
+  ADC_Store_KeySignal;
   Label72;
   Label73;
   Label74;
@@ -435,7 +435,7 @@ subgraph cluster_adc_int {
   Label86;
   Label87;
   Label88;
-  Label89;
+  ADC_Store_BattVoltage;
   Label90;
   Label91;
   Label92;
@@ -444,18 +444,18 @@ subgraph cluster_adc_int {
   Label95;
   Label96;
   Label97;
-  Label98;
+  ADC_Store_ChargerCurrent;
   Label99;
   Label100;
   Label101;
-  Label102;
+  ADC_Store_LightSensor;
   Label103;
   Label104;
   Label105;
   Label106;
   Label107;
   Label108;
-  Label109;
+  ADC_Store_BattTemperature;
   Label110;
 }
 
