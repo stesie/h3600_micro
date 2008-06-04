@@ -1119,26 +1119,26 @@ __vect_SpiTransferComplete:
  67a:   in      r0, SREG
  67c:   lds     r19, 0x00f3
  680:   sbrs    r19, 0          ; 0x01 = 1
- 682:   rjmp    Label113
+ 682:   rjmp    SPI_HandleRead
  684:   lds     r20, 0x00a1
  688:   lds     r21, 0x00a2
  68c:   cp      r20, r21
- 68e:   brne    Label112
+ 68e:   brne    SPI_SendNextByte
  690:   ori     r19, 0x04       ; 4
  692:   sts     0x00f3, r19
- 696:   rjmp    Label116
+ 696:   rjmp    SPI_Int_Out
 
 ; Referenced from offset 0x68e by brne
-Label112:
+SPI_SendNextByte:
  698:   lds     r30, 0x00a1
  69c:   clr     r31
  69e:   ld      r19, Z+
  6a0:   sts     0x00a1, r30
  6a4:   out     SPDR, r19
- 6a6:   rjmp    Label116
+ 6a6:   rjmp    SPI_Int_Out
 
 ; Referenced from offset 0x682 by rjmp
-Label113:
+SPI_HandleRead:
  6a8:   lds     r30, 0x00a3
  6ac:   clr     r31
  6ae:   in      r21, SPDR
@@ -1147,7 +1147,7 @@ Label113:
  6b6:   sts     0x00a4, r30
  6ba:   lds     r20, 0x00f7
  6be:   dec     r20
- 6c0:   breq    Label115
+ 6c0:   breq    SPI_ReadFinished
  6c2:   sts     0x00f7, r20
  6c6:   lds     r20, 0x00f5
  6ca:   sbrc    r20, 3          ; 0x08 = 8
@@ -1156,17 +1156,17 @@ Label113:
  6d0:   rjmp    Label114
  6d2:   clr     r20
  6d4:   out     SPDR, r20
- 6d6:   rjmp    Label116
+ 6d6:   rjmp    SPI_Int_Out
 
 ; Referenced from offset 0x6cc by rjmp
 ; Referenced from offset 0x6d0 by rjmp
 Label114:
  6d8:   ori     r19, 0x0c       ; 12
  6da:   sts     0x00f3, r19
- 6de:   rjmp    Label116
+ 6de:   rjmp    SPI_Int_Out
 
 ; Referenced from offset 0x6c0 by breq
-Label115:
+SPI_ReadFinished:
  6e0:   ori     r19, 0x04       ; 4
  6e2:   sts     0x00f3, r19
 
@@ -1174,7 +1174,7 @@ Label115:
 ; Referenced from offset 0x6a6 by rjmp
 ; Referenced from offset 0x6d6 by rjmp
 ; Referenced from offset 0x6de by rjmp
-Label116:
+SPI_Int_Out:
  6e6:   out     SREG, r0
  6e8:   reti
 
@@ -2713,11 +2713,11 @@ Label240:
 main_spi_start:
 10d0:   lds     r16, 0x00f3
 10d4:   sbrc    r16, 7          ; 0x80 = 128
-10d6:   rjmp    Label249
+10d6:   rjmp    SPI_Block_Intermediate
 10d8:   lds     r17, 0x00f4
 10dc:   andi    r17, 0x0f       ; 15
 10de:   brne    Label241
-10e0:   rjmp    Label249
+10e0:   rjmp    SPI_Block_Intermediate
 
 ; Referenced from offset 0x10de by brne
 Label241:
@@ -2745,7 +2745,7 @@ Label241:
 111e:   sts     0x00a2, r16
 1122:   ldi     r16, 0x06       ; 6
 1124:   out     SPDR, r16
-1126:   rjmp    Label249
+1126:   rjmp    SPI_Block_Intermediate
 
 ; Referenced from offset 0x10ec by rjmp
 Label242:
@@ -2779,7 +2779,7 @@ Label242:
 ; Referenced from offset 0x116e by brne
 Label243:
 1172:   out     SPDR, r16
-1174:   rjmp    Label249
+1174:   rjmp    SPI_Block_Intermediate
 
 ; Referenced from offset 0x1152 by breq
 Label244:
@@ -2788,7 +2788,7 @@ Label244:
 117c:   sts     0x00f7, r16
 1180:   ldi     r16, 0x05       ; 5
 1182:   out     SPDR, r16
-1184:   rjmp    Label249
+1184:   rjmp    SPI_Block_Intermediate
 
 ; Referenced from offset 0x112a by rjmp
 Label245:
@@ -2825,12 +2825,12 @@ Label246:
 11ca:   sts     0x00f7, r16
 11ce:   ldi     r16, 0xa1       ; 161
 11d0:   out     SPDR, r16
-11d2:   rjmp    Label249
+11d2:   rjmp    SPI_Block_Intermediate
 
 ; Referenced from offset 0x1188 by rjmp
 Label247:
 11d4:   sbrs    r18, 3          ; 0x08 = 8
-11d6:   rjmp    Label249
+11d6:   rjmp    SPI_Block_Intermediate
 11d8:   ori     r16, 0x81       ; 129
 11da:   sts     0x00f3, r16
 11de:   andi    r18, 0xf7       ; 247
@@ -2862,7 +2862,7 @@ Label248:
 1218:   sts     0x00f7, r16
 121c:   ldi     r16, 0xa1       ; 161
 121e:   out     SPDR, r16
-1220:   rjmp    Label249
+1220:   rjmp    SPI_Block_Intermediate
 
 ; Referenced from offset 0x10d6 by rjmp
 ; Referenced from offset 0x10e0 by rjmp
@@ -2872,10 +2872,10 @@ Label248:
 ; Referenced from offset 0x11d2 by rjmp
 ; Referenced from offset 0x11d6 by rjmp
 ; Referenced from offset 0x1220 by rjmp
-Label249:
+SPI_Block_Intermediate:
 1222:   lds     r16, 0x00f3
 1226:   sbrs    r16, 2          ; 0x04 = 4
-1228:   rjmp    Label274
+1228:   rjmp    SPI_Block_Out
 122a:   lds     r17, 0x00f5
 122e:   sbrs    r17, 0          ; 0x01 = 1
 1230:   rjmp    Label254
@@ -2894,7 +2894,7 @@ Label250:
 1248:   clr     r16
 124a:   sts     0x00f8, r16
 124e:   out     SPDR, r16
-1250:   rjmp    Label274
+1250:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x1238 by rjmp
 Label251:
@@ -2919,18 +2919,18 @@ Label252:
 1276:   brne    Label252
 1278:   sts     0x00f8, r17
 127c:   sbic    PINB, 3         ; 0x08 = 8
-127e:   rjmp    Label274
+127e:   rjmp    SPI_Block_Out
 1280:   ori     r22, 0x02       ; 2
 1282:   lds     r16, 0x00ff
 1286:   andi    r16, 0x03       ; 3
 1288:   breq    Label253
-128a:   rjmp    Label274
+128a:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x1288 by breq
 Label253:
 128c:   ori     r16, 0x01       ; 1
 128e:   sts     0x00ff, r16
-1292:   rjmp    Label274
+1292:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x1230 by rjmp
 Label254:
@@ -2979,7 +2979,7 @@ Label256:
 ; Referenced from offset 0x12e0 by brne
 Label257:
 12e4:   out     SPDR, r16
-12e6:   rjmp    Label274
+12e6:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x12c4 by breq
 Label258:
@@ -2989,12 +2989,12 @@ Label258:
 12f0:   cbi     PORTD, 5        ; 0x20 = 32
 12f2:   ldi     r16, 0x01       ; 1
 12f4:   out     SPDR, r16
-12f6:   rjmp    Label274
+12f6:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x12a4 by rjmp
 Label259:
 12f8:   sbrs    r18, 7          ; 0x80 = 128
-12fa:   rjmp    Label274
+12fa:   rjmp    SPI_Block_Out
 12fc:   andi    r17, 0xfd       ; 253
 12fe:   sts     0x00f5, r17
 1302:   andi    r18, 0x7d       ; 125
@@ -3002,12 +3002,12 @@ Label259:
 1308:   andi    r16, 0x7a       ; 122
 130a:   sts     0x00f3, r16
 130e:   sbic    PINB, 3         ; 0x08 = 8
-1310:   rjmp    Label274
+1310:   rjmp    SPI_Block_Out
 1312:   lds     r16, 0x0067
 1316:   ori     r16, 0x08       ; 8
 1318:   sts     0x0067, r16
 131c:   ori     r23, 0x80       ; 128
-131e:   rjmp    Label274
+131e:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x1296 by rjmp
 Label260:
@@ -3022,7 +3022,7 @@ Label260:
 Label261:
 132c:   lds     r18, 0x00f6
 1330:   sbrs    r18, 7          ; 0x80 = 128
-1332:   rjmp    Label274
+1332:   rjmp    SPI_Block_Out
 1334:   andi    r16, 0xfa       ; 250
 1336:   ori     r16, 0x02       ; 2
 1338:   sts     0x00f3, r16
@@ -3031,7 +3031,7 @@ Label261:
 1342:   clr     r16
 1344:   sts     0x00f8, r16
 1348:   out     SPDR, r16
-134a:   rjmp    Label274
+134a:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x132a by rjmp
 Label262:
@@ -3046,7 +3046,7 @@ Label263:
 1358:   dec     r16
 135a:   brne    Label263
 135c:   out     SPDR, r16
-135e:   rjmp    Label274
+135e:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x134e by rjmp
 Label264:
@@ -3087,7 +3087,7 @@ Label264:
 13b2:   sts     0x00bd, r16
 13b6:   ld      r16, Y+
 13b8:   sts     0x00be, r16
-13bc:   rjmp    Label274
+13bc:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x1388 by brne
 ; Referenced from offset 0x138e by brne
@@ -3097,12 +3097,12 @@ Label265:
 13c0:   sts     0x00bc, r16
 13c4:   sts     0x00bd, r16
 13c8:   sts     0x00be, r16
-13cc:   rjmp    Label274
+13cc:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x1322 by rjmp
 Label266:
 13ce:   sbrs    r17, 3          ; 0x08 = 8
-13d0:   rjmp    Label274
+13d0:   rjmp    SPI_Block_Out
 13d2:   sbrc    r16, 0          ; 0x01 = 1
 13d4:   rjmp    Label267
 13d6:   sbrc    r16, 1          ; 0x02 = 2
@@ -3112,7 +3112,7 @@ Label266:
 Label267:
 13da:   lds     r18, 0x00f6
 13de:   sbrs    r18, 7          ; 0x80 = 128
-13e0:   rjmp    Label274
+13e0:   rjmp    SPI_Block_Out
 13e2:   andi    r16, 0xfa       ; 250
 13e4:   ori     r16, 0x02       ; 2
 13e6:   sts     0x00f3, r16
@@ -3121,7 +3121,7 @@ Label267:
 13f0:   clr     r16
 13f2:   sts     0x00f8, r16
 13f6:   out     SPDR, r16
-13f8:   rjmp    Label274
+13f8:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x13d8 by rjmp
 Label268:
@@ -3136,7 +3136,7 @@ Label269:
 1406:   dec     r16
 1408:   brne    Label269
 140a:   out     SPDR, r16
-140c:   rjmp    Label274
+140c:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x13fc by rjmp
 Label270:
@@ -3181,7 +3181,7 @@ Label270:
 146a:   andi    r16, 0xfe       ; 254
 146c:   ori     r16, 0x02       ; 2
 146e:   sts     0x00ff, r16
-1472:   rjmp    Label274
+1472:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x142c by brne
 ; Referenced from offset 0x1432 by brne
@@ -3195,7 +3195,7 @@ Label271:
 1480:   sts     0x00ff, r16
 1484:   ldi     r16, 0x05       ; 5
 1486:   sts     0x00b9, r16
-148a:   rjmp    Label274
+148a:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x147a by rjmp
 Label272:
@@ -3205,7 +3205,7 @@ Label272:
 1494:   sts     0x00b9, r17
 1498:   andi    r16, 0xfd       ; 253
 149a:   sts     0x00ff, r16
-149e:   rjmp    Label274
+149e:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x1492 by breq
 Label273:
@@ -3216,7 +3216,7 @@ Label273:
 14aa:   sts     0x00b6, r16
 14ae:   sts     0x00b7, r16
 14b2:   sts     0x00b8, r16
-14b6:   rjmp    Label274
+14b6:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x1228 by rjmp
 ; Referenced from offset 0x1250 by rjmp
@@ -3241,7 +3241,7 @@ Label273:
 ; Referenced from offset 0x148a by rjmp
 ; Referenced from offset 0x149e by rjmp
 ; Referenced from offset 0x14b6 by rjmp
-Label274:
+SPI_Block_Out:
 msg_handler_start:
 14b8:   lds     r16, 0x0065
 14bc:   sbrs    r16, 6          ; 0x40 = 64
@@ -3886,10 +3886,10 @@ Label312:
 RX_Handler_MSG_SPI_READ:
 18c4:   lds     r16, 0x00f4
 18c8:   sbrc    r16, 0          ; 0x01 = 1
-18ca:   rjmp    Label315
+18ca:   rjmp    RX_SpiRead_Out
 18cc:   lds     r16, 0x00f5
 18d0:   sbrc    r16, 0          ; 0x01 = 1
-18d2:   rjmp    Label315
+18d2:   rjmp    RX_SpiRead_Out
 18d4:   lds     r28, 0x00ef
 18d8:   clr     r29
 18da:   ld      r16, Y+
@@ -3922,7 +3922,7 @@ Label314:
 
 ; Referenced from offset 0x18ca by rjmp
 ; Referenced from offset 0x18d2 by rjmp
-Label315:
+RX_SpiRead_Out:
 1910:   ret
 
 
@@ -3930,10 +3930,10 @@ Label315:
 RX_Handler_MSG_SPI_WRITE:
 1912:   lds     r16, 0x00f4
 1916:   sbrc    r16, 1          ; 0x02 = 2
-1918:   rjmp    Label318
+1918:   rjmp    RX_SpiWrite_Out
 191a:   lds     r16, 0x00f5
 191e:   sbrc    r16, 1          ; 0x02 = 2
-1920:   rjmp    Label318
+1920:   rjmp    RX_SpiWrite_Out
 1922:   ldi     r26, 0x13       ; 19
 1924:   ldi     r27, 0x01       ; 1
 1926:   ldi     r28, 0xde       ; 222
@@ -3979,7 +3979,7 @@ Label317:
 
 ; Referenced from offset 0x1918 by rjmp
 ; Referenced from offset 0x1920 by rjmp
-Label318:
+RX_SpiWrite_Out:
 196e:   ret
 
 

@@ -241,7 +241,7 @@ subgraph cluster_MSG_SPI_READ {
   RX_Handler_MSG_SPI_READ
   Label313;
   Label314;
-  Label315;
+  RX_SpiRead_Out;
 }
 
 subgraph cluster_MSG_SPI_WRITE {
@@ -251,7 +251,7 @@ subgraph cluster_MSG_SPI_WRITE {
   RX_Handler_MSG_SPI_WRITE
   Label316;
   Label317;
-  Label318;
+  RX_SpiWrite_Out;
 }
 
 subgraph cluster_MSG_THERMAL {
@@ -291,7 +291,7 @@ subgraph cluster_spi {
   Label246;
   Label247;
   Label248;
-  Label249;
+  SPI_Block_Intermediate;
   Label250;
   Label251;
   Label252;
@@ -316,7 +316,7 @@ subgraph cluster_spi {
   Label271;
   Label272;
   Label273;
-  Label274;
+  SPI_Block_Out;
 }
 
 subgraph cluster_charging_logic {
@@ -519,11 +519,11 @@ subgraph cluster_spi_int {
   color = brown1;
 
   __vect_SpiTransferComplete
-  Label112
-  Label113
+  SPI_SendNextByte
+  SPI_HandleRead
   Label114
-  Label115
-  Label116
+  SPI_ReadFinished
+  SPI_Int_Out
 }
 
 
