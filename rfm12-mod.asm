@@ -3664,62 +3664,26 @@ RX_Handler_MSG_VERSION:
 
 ; Referenced from offset 0x14f4 by rcall
 RX_Handler_MSG_NOTIFY_LED:
-1790:   lds     r28, 0x00ef
-1794:   clr     r29
-1796:   ld      r16, Y+
-1798:   sbrc    r16, 0          ; 0x01 = 1
-179a:   rjmp    Label302
-179c:   clr     r16
-179e:   sts     0x006d, r16
-17a2:   sbi     PORTB, 4        ; 0x10 = 16
+.org 0x17a4
+
+;; configure default-ack routine to send notify-led ack ...
 17a4:   lds     r16, 0x0067
 17a8:   ori     r16, 0x02       ; 2
 17aa:   sts     0x0067, r16
+
+;; request default ack
 17ae:   ori     r23, 0x80       ; 128
+
+;; clear rx buf busy bit
 17b0:   lds     r16, 0x0065
 17b4:   andi    r16, 0xbf       ; 191
 17b6:   sts     0x0065, r16
+
 17ba:   ret
 
 
-; Referenced from offset 0x179a by rjmp
-Label302:
-17bc:   ld      r16, Y+
-17be:   cpi     r16, 0x00       ; 0
-17c0:   brne    Label303
-17c2:   lds     r17, 0x006d
-17c6:   ori     r17, 0x04       ; 4
-17c8:   sts     0x006d, r17
 
-; Referenced from offset 0x17c0 by brne
-Label303:
-17cc:   sts     0x006e, r16
-17d0:   ld      r16, Y+
-17d2:   sts     0x006f, r16
-17d6:   sts     0x0074, r16
-17da:   ld      r16, Y+
-17dc:   sts     0x0070, r16
-17e0:   ldi     r16, 0x64       ; 100
-17e2:   sts     0x0071, r16
-17e6:   ldi     r16, 0x32       ; 50
-17e8:   sts     0x0072, r16
-17ec:   ldi     r16, 0x0c       ; 12
-17ee:   sts     0x0073, r16
-17f2:   lds     r16, 0x006d
-17f6:   ori     r16, 0x01       ; 1
-17f8:   sts     0x006d, r16
-17fc:   sbi     PORTC, 6        ; 0x40 = 64
-17fe:   cbi     PORTB, 4        ; 0x10 = 16
-1800:   lds     r16, 0x0067
-1804:   ori     r16, 0x02       ; 2
-1806:   sts     0x0067, r16
-180a:   ori     r23, 0x80       ; 128
-180c:   lds     r16, 0x0065
-1810:   andi    r16, 0xbf       ; 191
-1812:   sts     0x0065, r16
-1816:   ret
-
-
+.org 0x1818
 ; Referenced from offset 0x14fc by rcall
 RX_Handler_MSG_BATTERY:
 1818:   ori     r23, 0x40       ; 64
