@@ -306,8 +306,8 @@ subgraph cluster_spi {
   Label261;
   Label262;
   Label263;
-  Label264;
-  Label265;
+  SPI_StoreReadPackVersion;
+  SPI_ClearPackVersion;
   Label266;
   Label267;
   Label268;
@@ -315,7 +315,7 @@ subgraph cluster_spi {
   SPI_StoreRead2ndBattState;
   Label271;
   Label272;
-  Label273;
+  SPI_Clear2ndBattState;
   SPI_Block_Out;
 }
 
@@ -464,8 +464,8 @@ subgraph cluster_udre {
   color = burlywood2;
 
   __vect_UartDataRegEmpty;
-  Label61;
-  Label62;
+  TX_NoMoreBytes;
+  TX_SendNextByte;
 }
 
 subgraph cluster_tov2 {
@@ -504,12 +504,12 @@ subgraph cluster_rxc {
   __vect_UartRxComplete;
   uart_rx_error
   uart_rx_iret
-  Label50;
-  Label51;
-  Label52;
-  Label53;
-  Label54;
-  Label55;
+  RX_RecvdFirstByte;
+  RX_StoreByte;
+  RX_PacketFinished;
+  RX_ChksumLoop;
+  RX_ChksumTest;
+  RX_ChksumError;
   Label56;
   Label57;
 }

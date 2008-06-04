@@ -538,52 +538,52 @@ __vect_UartRxComplete:
  2cc:   rjmp    Label56
  2ce:   lds     r21, 0x00ef
  2d2:   cpi     r21, 0xde       ; 222
- 2d4:   breq    Label50
+ 2d4:   breq    RX_RecvdFirstByte
  2d6:   lds     r21, 0x0066
  2da:   dec     r21
  2dc:   sts     0x0066, r21
- 2e0:   rjmp    Label51
+ 2e0:   rjmp    RX_StoreByte
 
 ; Referenced from offset 0x2d4 by breq
-Label50:
+RX_RecvdFirstByte:
  2e2:   mov     r20, r19
  2e4:   andi    r20, 0x0f       ; 15
  2e6:   inc     r20
  2e8:   sts     0x0066, r20
- 2ec:   rjmp    Label51
+ 2ec:   rjmp    RX_StoreByte
 
 ; Referenced from offset 0x2e0 by rjmp
 ; Referenced from offset 0x2ec by rjmp
-Label51:
+RX_StoreByte:
  2ee:   lds     r30, 0x00ef
  2f2:   clr     r31
  2f4:   st      Z+, r19
  2f6:   sts     0x00ef, r30
  2fa:   cpi     r21, 0x00       ; 0
- 2fc:   breq    Label52
+ 2fc:   breq    RX_PacketFinished
  2fe:   rjmp    uart_rx_iret
 
 ; Referenced from offset 0x2fc by breq
-Label52:
+RX_PacketFinished:
  300:   ldi     r30, 0xde       ; 222
  302:   clr     r31
  304:   ld      r19, Z+
  306:   mov     r20, r19
  308:   andi    r19, 0x0f       ; 15
- 30a:   breq    Label54
+ 30a:   breq    RX_ChksumTest
 
 ; Referenced from offset 0x312 by brne
-Label53:
+RX_ChksumLoop:
  30c:   ld      r21, Z+
  30e:   add     r20, r21
  310:   dec     r19
- 312:   brne    Label53
+ 312:   brne    RX_ChksumLoop
 
 ; Referenced from offset 0x30a by breq
-Label54:
+RX_ChksumTest:
  314:   ld      r21, Z+
  316:   cp      r20, r21
- 318:   brne    Label55
+ 318:   brne    RX_ChksumError
  31a:   lds     r20, 0x0065
  31e:   andi    r20, 0x7f       ; 127
  320:   ori     r20, 0x40       ; 64
@@ -591,7 +591,7 @@ Label54:
  326:   rjmp    uart_rx_iret
 
 ; Referenced from offset 0x318 by brne
-Label55:
+RX_ChksumError:
  328:   lds     r20, 0x0065
  32c:   andi    r20, 0x7f       ; 127
  32e:   sts     0x0065, r20
@@ -639,10 +639,10 @@ __vect_UartDataRegEmpty:
  362:   lds     r19, 0x00d1
  366:   lds     r20, 0x00d2
  36a:   cp      r19, r20
- 36c:   brcs    Label62
+ 36c:   brcs    TX_SendNextByte
 
 ; Referenced from offset 0x37c by rjmp
-Label61:
+TX_NoMoreBytes:
  36e:   andi    r23, 0xfe       ; 254
  370:   in      r19, UCR
  372:   andi    r19, 0x9f       ; 159
@@ -651,9 +651,9 @@ Label61:
  378:   reti
 
 ; Referenced from offset 0x36c by brcs
-Label62:
+TX_SendNextByte:
  37a:   sbic    PINB, 3         ; 0x08 = 8
- 37c:   rjmp    Label61
+ 37c:   rjmp    TX_NoMoreBytes
  37e:   lds     r30, 0x00d1
  382:   clr     r31
  384:   ld      r19, Z+
@@ -2987,7 +2987,7 @@ Label261:
 ; Referenced from offset 0x132a by rjmp
 Label262:
 134c:   sbrs    r16, 3          ; 0x08 = 8
-134e:   rjmp    Label264
+134e:   rjmp    SPI_StoreReadPackVersion
 1350:   andi    r16, 0xf3       ; 243
 1352:   sts     0x00f3, r16
 1356:   ldi     r16, 0x28       ; 40
@@ -3000,7 +3000,7 @@ Label263:
 135e:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x134e by rjmp
-Label264:
+SPI_StoreReadPackVersion:
 1360:   andi    r16, 0x79       ; 121
 1362:   sts     0x00f3, r16
 1366:   andi    r17, 0xfb       ; 251
@@ -3015,10 +3015,10 @@ Label264:
 1382:   ldi     r28, 0xa5       ; 165
 1384:   ld      r16, Y+
 1386:   cpi     r16, 0xa1       ; 161
-1388:   brne    Label265
+1388:   brne    SPI_ClearPackVersion
 138a:   ld      r16, Y+
 138c:   cpi     r16, 0x13       ; 19
-138e:   brne    Label265
+138e:   brne    SPI_ClearPackVersion
 1390:   mov     r17, r16
 1392:   ld      r16, Y+
 1394:   add     r17, r16
@@ -3028,7 +3028,7 @@ Label264:
 139c:   add     r17, r16
 139e:   ld      r16, Y+
 13a0:   cp      r17, r16
-13a2:   brne    Label265
+13a2:   brne    SPI_ClearPackVersion
 13a4:   ldi     r28, 0xa5       ; 165
 13a6:   inc     r28
 13a8:   inc     r28
@@ -3043,7 +3043,7 @@ Label264:
 ; Referenced from offset 0x1388 by brne
 ; Referenced from offset 0x138e by brne
 ; Referenced from offset 0x13a2 by brne
-Label265:
+SPI_ClearPackVersion:
 13be:   clr     r16
 13c0:   sts     0x00bc, r16
 13c4:   sts     0x00bd, r16
@@ -3152,14 +3152,14 @@ Label271:
 Label272:
 148c:   lds     r17, 0x00b9
 1490:   dec     r17
-1492:   breq    Label273
+1492:   breq    SPI_Clear2ndBattState
 1494:   sts     0x00b9, r17
 1498:   andi    r16, 0xfd       ; 253
 149a:   sts     0x00ff, r16
 149e:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x1492 by breq
-Label273:
+SPI_Clear2ndBattState:
 14a0:   andi    r16, 0xfc       ; 252
 14a2:   sts     0x00ff, r16
 14a6:   clr     r16
