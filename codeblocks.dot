@@ -312,7 +312,7 @@ subgraph cluster_spi {
   Label267;
   Label268;
   Label269;
-  Label270;
+  SPI_StoreRead2ndBattState;
   Label271;
   Label272;
   Label273;

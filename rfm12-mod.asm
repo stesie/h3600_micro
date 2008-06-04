@@ -3077,7 +3077,7 @@ Label267:
 ; Referenced from offset 0x13d8 by rjmp
 Label268:
 13fa:   sbrs    r16, 3          ; 0x08 = 8
-13fc:   rjmp    Label270
+13fc:   rjmp    SPI_StoreRead2ndBattState
 13fe:   andi    r16, 0xf3       ; 243
 1400:   sts     0x00f3, r16
 1404:   ldi     r16, 0x28       ; 40
@@ -3090,7 +3090,7 @@ Label269:
 140c:   rjmp    SPI_Block_Out
 
 ; Referenced from offset 0x13fc by rjmp
-Label270:
+SPI_StoreRead2ndBattState:
 140e:   andi    r16, 0x79       ; 121
 1410:   sts     0x00f3, r16
 1414:   andi    r17, 0xf7       ; 247
