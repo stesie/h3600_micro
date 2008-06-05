@@ -263,6 +263,18 @@ subgraph cluster_MSG_THERMAL {
   Label320;
 }
 
+subgraph cluster_MSG_RFM12 {
+  style = filled;
+  color = lightcoral;
+
+  RX_Handler_MSG_RFM12
+  RFM12_Packet_valid
+  RFM12_GetInternalStatus
+  RFM12_GetRfm12Status
+  RX_Handler_TestForRfm12Packet
+}
+
+
   msg_handler_start
   RX_Handler_DEMUX
   RX_Handler_DEMUX_Out
@@ -526,4 +538,11 @@ subgraph cluster_spi_int {
   SPI_Int_Out
 }
 
+subgraph cluster_rfm12 {
+  style = filled;
+  color = green;
 
+  RFM12_DoSpi;
+  RFM12_RestoreSpi;
+  RFM12_ConfigureSpi;
+}
