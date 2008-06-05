@@ -3979,8 +3979,8 @@ TX_RFM12_Status:
 	;; FIXME: send SOF, 0xA2, r16, r17, CRC
 
 	rcall	RFM12_RestoreSpi
-	ret
+	rjmp	Label158	; back to mainloop
 
 TX_RFM12_Internal_Status:
 	;; FIXME: send SOF, 0xA2, r5, r6, CRC
-	ret
+	rjmp	Label158	; back to mainloop
