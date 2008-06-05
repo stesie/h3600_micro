@@ -3,36 +3,36 @@ N		:= rfm12-mod
 DOTOPTIONS 	:= -Grankdir=LR
 
 
-all: reasm-check $N.build.hex $N.build.bin $N.build.dot
+all: reasm-check $N.diff $N.hex $N.bin $N.dot
 
 clean:
 	rm -f $F.{elf,bin,png,dot}
 	rm -f $F.reasm.*
-	rm -f $N.build.*
+	rm -f $N.{elf,bin,png,dot}
 
 $F.bin: $F.hex
 	avr-objcopy -I ihex -O binary $< $@
 
 #-------
 
-$N.build.asm: $N.asm
-	perl -pe 's/^\s*[0-9a-f]+://' < $< > $@
-
 $F.reasm.asm: $F.asm
-	perl -pe 's/^\s*[0-9a-f]+://' < $< > $@
+	perl -pe 's/^\s*[0-9a-f]+:\s+/\t/; s/^; Referenced.*//; ' < $< > $@
 
 #-------
+
+$N.diff: $F.reasm.asm $N.asm
+	-diff -u $^ > $@
 
 %.elf: %.asm
 	avr-gcc -x assembler -mmcu=at90s8535 $< -o $@ -nostdlib
 
-$N.build.bin: $N.build.elf
+$N.bin: $N.elf
 	avr-objcopy -O binary -R .eeprom $< $@
 
 $F.reasm.bin: $F.reasm.elf
 	avr-objcopy -O binary -R .eeprom $< $@
 
-$N.build.hex: $N.build.elf
+$N.hex: $N.elf
 	avr-objcopy -O ihex -R .eeprom $< $@
 
 %.lss: %.elf
