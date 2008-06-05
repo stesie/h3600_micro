@@ -1576,22 +1576,22 @@ TX_BatteryAck:
  9de:   sbrc    r18, 0          ; 0x01 = 1
  9e0:   ldi     r16, 0x99       ; 153
  9e2:   mov     r17, r16
- 9e4:   st      Y+, r16
+ 9e4:   st      Y+, r16		; cmd/len
  9e6:   ldi     r16, 0x00       ; 0
  9e8:   sbis    PINB, 0         ; 0x01 = 1
  9ea:   ldi     r16, 0x01       ; 1
  9ec:   add     r17, r16
- 9ee:   st      Y+, r16
+ 9ee:   st      Y+, r16		; pwr source (0)
  9f0:   ldi     r16, 0x05       ; 5
  9f2:   add     r17, r16
- 9f4:   st      Y+, r16
+ 9f4:   st      Y+, r16		; battery chemistry (1)
  9f6:   cli
  9f8:   lds     r16, 0x007c
  9fc:   add     r17, r16
- 9fe:   st      Y+, r16
+ 9fe:   st      Y+, r16		; batt. voltage lsb (2)
  a00:   lds     r16, 0x007b
  a04:   add     r17, r16
- a06:   st      Y+, r16
+ a06:   st      Y+, r16		; batt. voltage msb (3)
  a08:   sei
  a0a:   ldi     r16, 0x00       ; 0
  a0c:   lds     r18, 0x008c
@@ -1608,7 +1608,7 @@ TX_BatteryAck:
  a28:   sbrc    r18, 6          ; 0x40 = 64
  a2a:   ori     r16, 0x40       ; 64
  a2c:   add     r17, r16
- a2e:   st      Y+, r16
+ a2e:   st      Y+, r16		; batt. status (4)
  a30:   lds     r18, 0x00ff
  a34:   sbrc    r18, 1          ; 0x02 = 2
  a36:   rjmp    TX_BatteryAck_2ndBatt
@@ -1621,23 +1621,23 @@ TX_BatteryAck:
 TX_BatteryAck_2ndBatt:
  a3e:   lds     r16, 0x00b6
  a42:   add     r17, r16
- a44:   st      Y+, r16
+ a44:   st      Y+, r16		; (5)
  a46:   lds     r16, 0x00b7
  a4a:   add     r17, r16
- a4c:   st      Y+, r16
+ a4c:   st      Y+, r16		; (6)
  a4e:   lds     r16, 0x00b8
  a52:   andi    r16, 0xef       ; 239
  a54:   sbic    PINB, 0         ; 0x01 = 1
  a56:   andi    r16, 0xf7       ; 247
  a58:   add     r17, r16
- a5a:   st      Y+, r16
+ a5a:   st      Y+, r16		; (7)
  a5c:   mov     r16, r7
  a5e:   add     r17, r16
- a60:   st      Y+, r16
+ a60:   st      Y+, r16		; (8)
 
 ; Referenced from offset 0xa3c by rjmp
 TX_BatteryAck_Out:
- a62:   st      Y+, r17
+ a62:   st      Y+, r17		; (chksum)
  a64:   sts     0x00d2, r28
  a68:   cli
  a6a:   sbi     UCR, 5          ; 0x20 = 32
@@ -1919,7 +1919,7 @@ Label165:
  bf8:   rjmp    Label166
  bfa:   ori     r24, 0x84       ; 132
  bfc:   andi    r25, 0xfb       ; 251
- bfe:   ldi     r16, 0x05       ; 5
+ bfe:   ldi     r16, 0x05       ; 5 -> Key signal input
  c00:   out     ADMUX, r16
  c02:   ldi     r16, 0xdd       ; 221
  c04:   out     ADCSR, r16
@@ -1931,7 +1931,7 @@ Label166:
  c0a:   rjmp    Label167
  c0c:   ori     r24, 0x88       ; 136
  c0e:   andi    r25, 0xf7       ; 247
- c10:   ldi     r16, 0x04       ; 4
+ c10:   ldi     r16, 0x04       ; 4 -> main batt. 2/3 voltage sense
  c12:   out     ADMUX, r16
  c14:   ldi     r16, 0xdd       ; 221
  c16:   out     ADCSR, r16
@@ -1943,7 +1943,7 @@ Label167:
  c1c:   rjmp    Label168
  c1e:   ori     r24, 0x90       ; 144
  c20:   andi    r25, 0xef       ; 239
- c22:   ldi     r16, 0x03       ; 3
+ c22:   ldi     r16, 0x03       ; 3 -> charger current monitor
  c24:   out     ADMUX, r16
  c26:   ldi     r16, 0xdd       ; 221
  c28:   out     ADCSR, r16
@@ -1955,7 +1955,7 @@ Label168:
  c2e:   rjmp    Label169
  c30:   ori     r24, 0xa0       ; 160
  c32:   andi    r25, 0xdf       ; 223
- c34:   ldi     r16, 0x02       ; 2
+ c34:   ldi     r16, 0x02       ; 2 -> Light sensor
  c36:   out     ADMUX, r16
  c38:   ldi     r16, 0xdd       ; 221
  c3a:   out     ADCSR, r16
@@ -1967,7 +1967,7 @@ Label169:
  c40:   rjmp    ADC_Block_Out
  c42:   ori     r24, 0xc0       ; 192
  c44:   andi    r25, 0xbf       ; 191
- c46:   ldi     r16, 0x01       ; 1
+ c46:   ldi     r16, 0x01       ; 1 -> Batt. temp. sensor
  c48:   out     ADMUX, r16
  c4a:   ldi     r16, 0xdd       ; 221
  c4c:   out     ADCSR, r16
@@ -3003,7 +3003,7 @@ Label259:
 130a:   sts     0x00f3, r16
 130e:   sbic    PINB, 3         ; 0x08 = 8
 1310:   rjmp    SPI_Block_Out
-1312:   lds     r16, 0x0067
+1312:   lds     r16, 0x0067	; queue SPI-Write default ack ...
 1316:   ori     r16, 0x08       ; 8
 1318:   sts     0x0067, r16
 131c:   ori     r23, 0x80       ; 128
@@ -3400,12 +3400,13 @@ Label287:
 159c:   brne    FinishLoopWithoutSleeping
 159e:   sbic    PINB, 3         ; 0x08 = 8
 15a0:   rjmp    SleepEnable_PowerDown
+SleepEnable_Idle:
 15a2:   cbi     ADCSR, 7        ; 0x80 = 128
 15a4:   cbi     SPCR, 6         ; 0x40 = 64
 15a6:   ldi     r16, 0x40       ; 64
 15a8:   out     MCUCR, r16
 15aa:   sei
-15ac:   sleep
+15ac:   sleep			; FIXME why sleep here?  PB3 is low ?
 15ae:   rjmp    MainLoop_Start
 
 ; Referenced from offset 0x1554 by rjmp
