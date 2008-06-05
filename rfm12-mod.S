@@ -3938,13 +3938,35 @@ RFM12_ConfigureSpi:
 	;; FIXME
 	ret
 
+
 RFM12_RestoreSpi:
 	;; FIXME
 	ret
 
+
+;;; send r16|r17 over SPI, return result in r16|r17 as well
 RFM12_DoSpi:	
-	;; FIXME
+	cbi	PORTB, 4	; chip select
+
+	;; send high byte
+	out	SPDR, r16
+.L1:
+	sbis	SPSR, SPIF
+	rjmp	.L1
+	in	r16, SPDR
+
+	;; send low byte
+	out	SPDR, r17
+.L2:
+	sbis	SPSR, SPIF
+	rjmp	.L2
+	in	r17, SPDR
+
+	sbi	PORTB, 4	; unselect chip
+
 	ret
+
+
 
 TX_RFM12_Status:
 	;; Send SPI command 0x0000 to read status from RFM12
