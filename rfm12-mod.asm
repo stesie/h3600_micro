@@ -1349,6 +1349,11 @@ main_cpu_irq_handler_start:
  822:   mov     r16, r22
  824:   andi    r16, 0x86       ; 134
  826:   brne    Label123
+
+	mov	r16, r5
+	andi	r16, 4 + 8	; rfm12 status request
+	brne	Label123
+	
  828:   rjmp    Label158
 
 ; Referenced from offset 0x820 by brne
@@ -1368,6 +1373,14 @@ Label123:
 
 ; Referenced from offset 0x82c by rjmp
 Label124:
+	;; check for rfm12 requests ...
+	mov	r16, r5
+	sbrc	r16, 2		; 4 -> rfm12 status
+	rjmp	TX_RFM12_Status
+	sbrc	r16, 3		; 8 -> internal status
+	rjmp	TX_RFM12_Internal_Status
+	
+	sbrc	r5, 4
  840:   sbrs    r22, 0          ; 0x01 = 1
  842:   rjmp    TX_VersionAck
 
@@ -2008,8 +2021,6 @@ Label169:
 ADC_Block_Out:
 	rjmp	main_charging_logic_start
 
-
-.org 0xcdc
 
 main_charging_logic_start:
  cdc:   lds     r16, 0x0075
@@ -3261,12 +3272,28 @@ Label282:
 ; Referenced from offset 0x1512 by brne
 Label283:
 1518:   cpi     r16, 0x60       ; 96
-151a:   brne    Label284
+151a:   brne    RX_Handler_TestForRfm12Packet
 151c:   rcall   RX_Handler_MSG_THERMAL_SENSOR
 151e:   rjmp    RX_Handler_DEMUX_Out
 
+
+RX_Handler_TestForRfm12Packet:
+	cpi	r16, 0xa0
+	brne	Label284	; discard packet
+
+	rcall	RX_Handler_MSG_RFM12
+	
+	;; clear new message flag
+	lds	r16, 0x0065
+	andi	r16, 0xbf
+	sts	0x0065, r16
+
+	;; go back into the main loop ...
+	rjmp	RX_Handler_DEMUX_Out
+	
 ; Referenced from offset 0x151a by brne
 Label284:
+	;; received an invalid request, ignore.
 1520:   clr     r16
 1522:   sts     0x0065, r16
 1526:   rjmp    RX_Handler_DEMUX_Out
@@ -3658,7 +3685,6 @@ RX_Handler_MSG_VERSION:
 
 ; Referenced from offset 0x14f4 by rcall
 RX_Handler_MSG_NOTIFY_LED:
-.org 0x17a4
 
 ;; configure default-ack routine to send notify-led ack ...
 17a4:   lds     r16, 0x0067
@@ -3675,9 +3701,6 @@ RX_Handler_MSG_NOTIFY_LED:
 
 17ba:   ret
 
-
-
-.org 0x1818
 ; Referenced from offset 0x14fc by rcall
 RX_Handler_MSG_BATTERY:
 1818:   ori     r23, 0x40       ; 64
@@ -3915,3 +3938,72 @@ Label320:
 198e:   sts     0x0065, r16
 1992:   ret
 
+
+RX_Handler_MSG_RFM12:
+	ldi	r28, 0xde
+	clr	r29		; Y -> Recv Data Buffer
+	
+	ld	r16, Y+		; load command to r16
+	andi	r16, 0x0f	; r16 = length of data
+
+	cpi	r16, 2
+	breq	RFM12_Packet_valid
+	ret			; get out here -> discard packet
+
+RFM12_Packet_valid:
+	ld	r16, Y+		; load first byte
+
+	cpi	r16, 0xff	; get internal status request
+	breq 	RFM12_GetInternalStatus
+
+	cpi	r16, 0x00
+	breq	RFM12_GetRfm12Status
+
+	;; normal SPI command ...
+	rcall	RFM12_ConfigureSpi
+
+	ld	r17, Y+		; load second byte
+	rcall	RFM12_DoSpi
+	rcall	RFM12_RestoreSpi
+	
+	;; fall through ...
+RFM12_GetInternalStatus:
+	mov	r16, r5
+	ori	r16, 8
+	mov	r5, r16
+	ret
+
+RFM12_GetRfm12Status:
+	mov	r16, r5
+	ori	r16, 4
+	mov	r5, r16
+	ret
+
+RFM12_ConfigureSpi:
+	;; FIXME
+	ret
+
+RFM12_RestoreSpi:
+	;; FIXME
+	ret
+
+RFM12_DoSpi:	
+	;; FIXME
+	ret
+
+TX_RFM12_Status:
+	;; Send SPI command 0x0000 to read status from RFM12
+	rcall 	RFM12_ConfigureSpi
+	
+	clr	r16
+	mov	r17, r16
+	rcall	RFM12_DoSpi	; send 0x0000
+
+	;; FIXME: send SOF, 0xA2, r16, r17, CRC
+
+	rcall	RFM12_RestoreSpi
+	ret
+
+TX_RFM12_Internal_Status:
+	;; FIXME: send SOF, 0xA2, r5, r6, CRC
+	ret
