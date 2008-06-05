@@ -7,24 +7,24 @@ all: reasm-check $N.diff $N.hex $N.bin $N.dot
 
 clean:
 	rm -f $F.{elf,bin,png,dot}
-	rm -f $F.reasm.*
-	rm -f $N.{elf,bin,png,dot}
+	rm -f $F.reasm.* $F.S
+	rm -f $N.{elf,bin,png,dot,hex,diff}
 
 $F.bin: $F.hex
 	avr-objcopy -I ihex -O binary $< $@
 
 #-------
 
-$F.reasm.asm: $F.asm
+$F.reasm.S: $F.asm
 	perl -pe 's/^\s*[0-9a-f]+:\s+/\t/; s/^; Referenced.*//; ' < $< > $@
 
 #-------
 
-$N.diff: $F.reasm.asm $N.asm
+$N.diff: $F.reasm.S $N.S
 	-diff -u $^ > $@
 
-%.elf: %.asm
-	avr-gcc -x assembler -mmcu=at90s8535 $< -o $@ -nostdlib
+%.elf: %.S
+	avr-gcc -mmcu=at90s8535 -D__SFR_OFFSET=0 -include avr/io.h $< -o $@ -nostdlib
 
 $N.bin: $N.elf
 	avr-objcopy -O binary -R .eeprom $< $@
@@ -38,7 +38,7 @@ $N.hex: $N.elf
 %.lss: %.elf
 	avr-objdump -d $< > $@
 
-%.dot: %.asm codeblocks.dot extract-flow-info
+%.dot: %.S codeblocks.dot extract-flow-info
 	rm -f $@
 	echo "digraph flow {" >> $@
 	./extract-flow-info < $< | uniq >> $@
