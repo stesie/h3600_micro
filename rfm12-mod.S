@@ -176,7 +176,7 @@ __vect_ExternalInt1:
 	;; caused by the RFM12 module ...
 	out     SREG, r0
 	reti
-	
+
 Touchpanel_IRQ:	
 	;; touchpanel interrupt handler ...
 	in      r19, GIMSK
@@ -1348,6 +1348,7 @@ Label121:
 	ldi     r24, 0x00       ; 0
 	ldi     r25, 0x00       ; 0
 	ldi     r22, 0x00       ; 0
+	mov	r5, r22
 	sts     0x006c, r16
 	sts     0x0068, r16
 	sts     0x0065, r16
