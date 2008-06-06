@@ -83,8 +83,102 @@ __vect_ExternalInt0_out:
 	reti
 
 
+;;; The RGIT/FFIT bit in RFM12 registers are set, we're in the middle
+;;; of the interrupt handler.
+RFM12_CareForFifo:
+	sbrs	r5, 0		; TX-active bit
+	rjmp	RFM12_CareForFifo_RX
+
+	;; RGIT set, i.e. TX completed, provide next byte.
+	sbrs	r5, 1		; TX-request bit
+	rjmp	RFM12_Switch_TXRX
+
+	mov	r16, r5
+	sbrs	r16, 5		; FIFO busy
+	ori	r16, 0x40	; set FIFO underrun (FIFO bit clear)
+	andi	r16, 0xDF	; clear FIFO busy
+	mov	r5, r16
+	
+	ldi	r16, 0xb8
+	mov	r17, r6
+	rcall	RFM12_DoSpi	; commit data
+
+	ret
+
+
+RFM12_Switch_TXRX:
+	ldi	r16, 0x82
+	mov	r17, r6
+	rcall	RFM12_DoSpi
+
+	;; clear TX active bit
+	mov	r16, r5
+	andi	r16, 0xFE
+	mov	r5, r16
+
+	ret
+
+
+RFM12_CareForFifo_RX:
+	;; FFIT set, i.e. RX completed a whole byte
+	sbrc	r5, 1		; TX-request bit
+	rjmp	RFM12_Switch_RXTX
+
+	mov	r16, r5
+	sbrc	r16, 5		; FIFO busy
+	ori	r16, 0x80	; set FIFO overrun (FIFO bit set)
+	ori	r16, 0x20	; set FIFO busy
+	mov	r5, r16
+
+	ldi	r16, 0xb0
+	clr	r17
+	rcall	RFM12_DoSpi
+	mov	r6, r17
+
+	ret
+
+
+RFM12_Switch_RXTX:
+	ldi	r16, 0x82
+	ldi	r17, 0x38
+	rcall	RFM12_DoSpi
+
+	;; set TX active bit
+	mov	r16, r5
+	ori	r16, 1
+	mov	r5, r16
+
+	ret
+
+
 __vect_ExternalInt1:
 	in      r0, SREG
+
+	push	r16
+	push	r17
+
+	;; check whether the rfm12 caused the interrupt
+	rcall	RFM12_ConfigureSpi
+	rcall	RFM12_GetIrqStatus 	; read status to r16
+
+	sbrc	r16, 7
+	rcall	RFM12_CareForFifo
+
+	rcall	RFM12_RestoreSpi
+
+	pop	r17
+	pop	r16
+
+	sbis	PIND, 3
+	rjmp	Touchpanel_IRQ
+
+	;; The IRQ line has been released, this means that the interrupt was
+	;; caused by the RFM12 module ...
+	out     SREG, r0
+	reti
+	
+Touchpanel_IRQ:	
+	;; touchpanel interrupt handler ...
 	in      r19, GIMSK
 	andi    r19, 0x7f       ; 127
 	out     GIMSK, r19
@@ -1224,8 +1318,11 @@ Label121:
 	out     OCR1BH, r16
 	out     OCR1BL, r16
 	out     SPSR, r16
+
+	;; SPIE, SPE, MSTR, CPHA, SPR0 -> clk/16
 	ldi     r17, 0xd6       ; 214
 	out     SPCR, r17
+
 	out     EECR, r16
 	ldi     r17, 0x98       ; 152
 	out     UCR, r17
@@ -1335,7 +1432,6 @@ Label124:
 	sbrc	r16, 3		; 8 -> internal status
 	rjmp	TX_RFM12_Internal_Status
 	
-	sbrc	r5, 4
 	sbrs    r22, 0          ; 0x01 = 1
 	rjmp    TX_VersionAck
 
@@ -1971,12 +2067,7 @@ Label169:
 
 
 
-
-
 ADC_Block_Out:
-	rjmp	main_charging_logic_start
-
-
 main_charging_logic_start:
 	lds     r16, 0x0075
 	sbrs    r16, 0          ; 0x01 = 1
@@ -3911,8 +4002,17 @@ RFM12_Packet_valid:
 	cpi	r16, 0xff	; get internal status request
 	breq 	RFM12_GetInternalStatus
 
-	cpi	r16, 0x00
+	cpi	r16, 0x00	; get rfm12 status request
 	breq	RFM12_GetRfm12Status
+
+	cpi	r16, 0x82
+	breq	RFM12_StatusChange
+
+	cpi	r16, 0xb0	; read command (just return status)
+	breq	RFM12_GetInternalStatus
+
+	cpi	r16, 0xb8	; send command
+	breq	RFM12_SendByte
 
 	;; normal SPI command ...
 	rcall	RFM12_ConfigureSpi
@@ -3928,24 +4028,106 @@ RFM12_GetInternalStatus:
 	mov	r5, r16
 	ret
 
+
 RFM12_GetRfm12Status:
 	mov	r16, r5
 	ori	r16, 4
 	mov	r5, r16
 	ret
 
+
+RFM12_StatusChange:
+	ld	r17, Y+
+
+	mov	r18, r17
+	andi	r18, 0x30
+	brne	RFM12_StatusChange_TXen
+
+	sbrc	r5, 0		; TX active
+	rjmp	RFM12_StatusChange_RXen
+
+	rcall	RFM12_ConfigureSpi
+	rcall	RFM12_DoSpi
+	rcall	RFM12_RestoreSpi
+	ret
+
+
+RFM12_StatusChange_TXen:
+	;; defer TX enable until fifo is filled
+	mov	r16, r5
+	ori	r16, 2		; TX request ..
+	mov	r5, r16
+	ret
+
+
+RFM12_StatusChange_RXen:
+	;; defer RX enable, TX is still active
+	mov	r6, r17		; keep config byte in fifo buffer
+	mov	r16, r5
+	andi	r16, 0xfd	; clear TX request ...
+	mov	r5, r16
+	ret
+
+
+RFM12_SendByte:
+	mov	r16, r5
+	sbrc	r16, 5		; FIFO busy
+	ori	r16, 0x80	; set FIFO overrun
+	ori	r16, 0x20	; set FIFO busy
+	mov	r5, r16
+
+	ld	r6, Y+
+
+	sbrc	r5, 0		; TX active
+	ret			; get out, TX already triggered
+
+	;; trigger tx
+	rcall	RFM12_ConfigureSpi
+
+	mov	r16, r5
+	ori	r16, 3		; set TX flags
+	mov	r5, r16
+	
+	ldi	r16, 0x82
+	ldi	r17, 0x38
+	rcall	RFM12_DoSpi
+	
+	rcall 	RFM12_RestoreSpi
+	ret
+	
+;;; Configure SPI hardware for RFM12 use.
+.global RFM12_ConfigureSpi
+	.type	RFM12_ConfigureSpi, @function
 RFM12_ConfigureSpi:
-	;; FIXME
+	;; SPE, MSTR -> clk/4
+	push	r16
+	ldi	r16, 0x50
+	out	SPCR, r16
+	pop	r16
 	ret
 
-
+;;; Restore "normal" SPI hardware configuration.
+.global	RFM12_RestoreSpi
+	.type	RFM12_RestoreSpi, @function
 RFM12_RestoreSpi:
-	;; FIXME
+	push	r16
+	
+	;; clear the status flags so the spi vector isn't executed
+	ldi	r16, 0xC0	; SPIF, WCOL
+	out	SPSR, r16
+	
+	;; SPIE, SPE, MSTR, CPHA, SPR0 -> clk/16
+	ldi     r16, 0xd6       ; 214
+	out     SPCR, r16
+
+	pop	r16
 	ret
 
 
-;;; send r16|r17 over SPI, return result in r16|r17 as well
-RFM12_DoSpi:	
+;;; Send r16|r17 over SPI, return result in r16|r17 as well.
+.global	RFM12_DoSpi
+	.type	RFM12_DoSpi, @function
+RFM12_DoSpi:
 	cbi	PORTB, 4	; chip select
 
 	;; send high byte
@@ -3967,6 +4149,21 @@ RFM12_DoSpi:
 	ret
 
 
+.global RFM12_GetIrqStatus
+	.type	RFM12_GetIrqStatus, @function
+RFM12_GetIrqStatus:
+	cbi	PORTB, 4	; chip select
+
+	clr	r16
+	out	SPDR, r16
+.L3:
+	sbis	SPSR, SPIF
+	rjmp	.L3
+	in	r16, SPDR
+
+	sbi	PORTB, 4	; unselect chip
+	ret
+
 
 TX_RFM12_Status:
 	;; Send SPI command 0x0000 to read status from RFM12
@@ -3976,11 +4173,63 @@ TX_RFM12_Status:
 	mov	r17, r16
 	rcall	RFM12_DoSpi	; send 0x0000
 
-	;; FIXME: send SOF, 0xA2, r16, r17, CRC
+	push	r17
+	push	r16
 
 	rcall	RFM12_RestoreSpi
+
+	ldi	r28, 0xc0
+	clr	r29
+	sts	0x00d1, r28
+
+	ldi	r16, 0x02	; SOF
+	st	Y+, r16
+
+	ldi	r16, 0xa2	; cmd = A, len = 2
+	st	Y+, r16
+	mov	r17, r16
+
+	pop	r16		; spi high byte
+	st	Y+, r16
+	add	r17, r16
+
+	pop	r16		; spi low  byte
+	st	Y+, r16
+	add	r17, r16
+
+	st	Y+, r17		; crc
+	sts	0x00d2, r28
+
+	cli
+	sbi	UCR, 5
+	sei
+
 	rjmp	Label158	; back to mainloop
 
+
 TX_RFM12_Internal_Status:
-	;; FIXME: send SOF, 0xA2, r5, r6, CRC
+	ldi	r28, 0xc0
+	clr	r29
+	sts	0x00d1, r28
+
+	ldi	r16, 0x02	;SOF
+	st	Y+, r16
+
+	ldi	r16, 0xa2
+	st	Y+, r16
+	mov	r17, r16
+
+	st	Y+, r5
+	add	r17, r5
+
+	st	Y+, r6
+	add	r17, r6
+
+	st	Y+, r17		; crc
+	sts	0x00d2, r28
+
+	cli
+	sbi	UCR, 5
+	sei
+	
 	rjmp	Label158	; back to mainloop
