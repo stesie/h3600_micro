@@ -1406,9 +1406,22 @@ main_cpu_irq_handler_start:
 	mov	r16, r5
 	andi	r16, 4 + 8	; rfm12 status request
 	brne	Label123
+
+	;; check whether we have to emit fifo busy/empty interrupts
+	mov	r16, r5
+	sbrc	r16, 0		; tx-active
+	rjmp	.txactive
+
+	andi	r16, 0x20	; fifo busy
+	brne	Label123
+	
+	rjmp	Label158
+	
+.txactive:
+	andi	r16, 0x30	; fifo busy + fifo empty signaled
+	breq	Label123	; fifo clean and not signaled -> notify!
 	
 	rjmp    Label158
-
 
 
 Label123:
@@ -1425,6 +1438,45 @@ Label123:
 	rjmp    Label158
 
 
+RFM12_Notify:
+	ldi	r28, 0xc0
+	clr	r29
+	sts	0x00d1, r28
+
+	ldi	r16, 0x02
+	st	Y+, r16		; SOF
+
+	ldi	r16, 0xa0
+	
+	mov	r18, r5
+	sbrs	r18, 0		; tx active
+	inc	r16		; rx active -> set len to 1.
+
+	st	Y+, r16		; store command id/len
+	mov	r17, r16	; build crc in r17
+
+	sbrc	r18, 0		; tx active
+	rjmp 	RFM12_Notify_TX
+
+	st	Y+, r6		; provide received byte
+	add	r17, r6
+
+	andi	r18, 0xdf	; clear fifo busy flag
+
+RFM12_Notify_TX:
+	st	Y+, r17		; crc
+	sts	0x00d2, r28
+
+	ori	r18, 0x10	; set `fifo empty signaled' flag
+	mov	r5, r18
+	
+	cli
+	sbi 	UCR, 5
+	sei
+
+	rjmp	Label158
+
+
 Label124:
 	;; check for rfm12 requests ...
 	mov	r16, r5
@@ -1432,7 +1484,16 @@ Label124:
 	rjmp	TX_RFM12_Status
 	sbrc	r16, 3		; 8 -> internal status
 	rjmp	TX_RFM12_Internal_Status
-	
+
+	andi	r16, 0x31	; mask fifo busy, fifo signalled, tx active
+	cpi	r16, 0x01	; if fifo clear, not signalled, tx active
+	breq	RFM12_Notify
+
+	mov	r16, r5
+	andi	r16, 0x21	; mask fifo busy, tx active
+	cpi	r16, 0x20	; if fifo busy, rx active ...
+	breq	RFM12_Notify
+
 	sbrs    r22, 0          ; 0x01 = 1
 	rjmp    TX_VersionAck
 
@@ -4077,8 +4138,9 @@ RFM12_StatusChange_RXen:
 RFM12_SendByte:
 	mov	r16, r5
 	sbrc	r16, 5		; FIFO busy
-	ori	r16, 0x80	; set FIFO overrun
+	ori	r16, 0x80	; set FIFO overrun (if FIFO was busy already)
 	ori	r16, 0x20	; set FIFO busy
+	andi	r16, 0xEF	; clear FIFO empty signalled
 	mov	r5, r16
 
 	ld	r6, Y+
