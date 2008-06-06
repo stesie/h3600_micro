@@ -1,6 +1,7 @@
 F		:= original
 N		:= rfm12-mod
 DOTOPTIONS 	:= -Grankdir=LR
+AVRDUDE		:= avrdude -p8535
 
 
 all: reasm-check $N.diff $N.hex $N.bin $N.dot
@@ -57,3 +58,13 @@ reasm-check: $F.reasm.bin $F.bin
 	-diff -up $^
 
 .PHONY: reasm-check
+
+#------
+
+eeprom.hex:
+	$(AVRDUDE) -U eeprom:r:$@:i
+
+load: rfm12-mod.hex eeprom.hex
+	$(AVRDUDE) -U flash:w:rfm12-mod.hex -U eeprom:w:eeprom.hex
+.PHONY: load
+
