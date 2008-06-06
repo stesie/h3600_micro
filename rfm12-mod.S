@@ -4081,9 +4081,10 @@ RFM12_Packet_valid:
 	breq	RFM12_SendByte
 
 	;; normal SPI command ...
-	rcall	RFM12_ConfigureSpi
-
 	ld	r17, Y+		; load second byte
+
+RFM12_SendSpiCommand:	
+	rcall	RFM12_ConfigureSpi
 	rcall	RFM12_DoSpi
 	rcall	RFM12_RestoreSpi
 	
@@ -4112,10 +4113,7 @@ RFM12_StatusChange:
 	sbrc	r5, 0		; TX active
 	rjmp	RFM12_StatusChange_RXen
 
-	rcall	RFM12_ConfigureSpi
-	rcall	RFM12_DoSpi
-	rcall	RFM12_RestoreSpi
-	ret
+	rjmp	RFM12_SendSpiCommand
 
 
 RFM12_StatusChange_TXen:
@@ -4123,7 +4121,7 @@ RFM12_StatusChange_TXen:
 	mov	r16, r5
 	ori	r16, 2		; TX request ..
 	mov	r5, r16
-	ret
+	rjmp 	RFM12_GetInternalStatus
 
 
 RFM12_StatusChange_RXen:
@@ -4132,7 +4130,7 @@ RFM12_StatusChange_RXen:
 	mov	r16, r5
 	andi	r16, 0xfd	; clear TX request ...
 	mov	r5, r16
-	ret
+	rjmp 	RFM12_GetInternalStatus
 
 
 RFM12_SendByte:
@@ -4146,21 +4144,17 @@ RFM12_SendByte:
 	ld	r6, Y+
 
 	sbrc	r5, 0		; TX active
-	ret			; get out, TX already triggered
+	rjmp	RFM12_GetInternalStatus ; send ack
 
 	;; trigger tx
-	rcall	RFM12_ConfigureSpi
-
 	mov	r16, r5
 	ori	r16, 3		; set TX flags
 	mov	r5, r16
 	
 	ldi	r16, 0x82
 	ldi	r17, 0x38
-	rcall	RFM12_DoSpi
+	rjmp 	RFM12_SendSpiCommand ; send SPI command and ack
 	
-	rcall 	RFM12_RestoreSpi
-	ret
 	
 ;;; Configure SPI hardware for RFM12 use.
 .global RFM12_ConfigureSpi
