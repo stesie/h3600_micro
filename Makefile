@@ -21,7 +21,7 @@ $F.reasm.S: $F.asm
 #-------
 
 $N.diff: $F.reasm.S $N.S
-	-diff -u $^ > $@
+	-diff -u $^ | grep -v -e '-\s*nop' > $@
 
 %.elf: %.S
 	avr-gcc -mmcu=at90s8535 -D__SFR_OFFSET=0 -include avr/io.h $< -o $@ -nostdlib
