@@ -90,9 +90,6 @@ RFM12_CareForFifo:
 	rjmp	RFM12_CareForFifo_RX
 
 	;; RGIT set, i.e. TX completed, provide next byte.
-	sbrs	r5, 1		; TX-request bit
-	rjmp	RFM12_Switch_TXRX
-
 	mov	r16, r5
 	sbrs	r16, 5		; FIFO busy
 	ori	r16, 0x40	; set FIFO underrun (FIFO bit clear)
@@ -106,23 +103,8 @@ RFM12_CareForFifo:
 	ret
 
 
-RFM12_Switch_TXRX:
-	ldi	r16, 0x82
-	mov	r17, r6
-	rcall	RFM12_DoSpi
-
-	;; clear TX active bit
-	mov	r16, r5
-	andi	r16, 0xFE
-	mov	r5, r16
-
-	ret
-
-
 RFM12_CareForFifo_RX:
 	;; FFIT set, i.e. RX completed a whole byte
-	sbrc	r5, 1		; TX-request bit
-	rjmp	RFM12_Switch_RXTX
 
 	mov	r16, r5
 	sbrc	r16, 5		; FIFO busy
@@ -135,19 +117,22 @@ RFM12_CareForFifo_RX:
 	rcall	RFM12_DoSpi
 	mov	r6, r17
 
+	mov	r16, r4
+	cpi	r16, 0xff	; length yet unknown, i.e. first byte?
+	breq	RFM12_RX_FirstByte
+
+	dec	r4
+	brne	RFM12_RX_NotComplete
+
+	ldi	r16, 0x82
+	ldi	r17, 0x08
+	rcall	RFM12_DoSpi	; RX stop
+	
+RFM12_RX_NotComplete:
 	ret
 
-
-RFM12_Switch_RXTX:
-	ldi	r16, 0x82
-	ldi	r17, 0x38
-	rcall	RFM12_DoSpi
-
-	;; set TX active bit
-	mov	r16, r5
-	ori	r16, 1
-	mov	r5, r16
-
+RFM12_RX_FirstByte:
+	mov	r4, r6		; packet length -> r4
 	ret
 
 
@@ -1412,9 +1397,10 @@ main_cpu_irq_handler_start:
 	sbrc	r16, 0		; tx-active
 	rjmp	.txactive
 
-	andi	r16, 0x20	; fifo busy
-	brne	Label123
-	
+	sbrc	r16, 5		; fifo busy
+	rjmp	Label123
+
+	;; hmm, nothing to notify about ...
 	rjmp	Label158
 	
 .txactive:
@@ -1490,8 +1476,8 @@ Label124:
 	breq	RFM12_Notify
 
 	mov	r16, r5
-	andi	r16, 0x21	; mask fifo busy, tx active
-	cpi	r16, 0x20	; if fifo busy, rx active ...
+	andi	r16, 0x22	; mask fifo busy, rx active
+	cpi	r16, 0x22	; if fifo busy, rx active ...
 	breq	RFM12_Notify
 
 	sbrs    r22, 0          ; 0x01 = 1
@@ -4068,17 +4054,12 @@ RFM12_Packet_valid:
 	cpi	r16, 0xff	; get internal status request
 	breq 	RFM12_GetInternalStatus
 
+	cpi	r16, 0xfe	; enable RX
+	breq	RFM12_EnableRX
+	
 	cpi	r16, 0x00	; get rfm12 status request
 	breq	RFM12_GetRfm12Status
 
-	cpi	r16, 0x82
-	breq	RFM12_StatusChange
-
-	cpi	r16, 0xb0	; read command (just return status)
-	breq	RFM12_GetInternalStatus
-
-	cpi	r16, 0xb8	; send command
-	breq	RFM12_SendByte
 
 	;; normal SPI command ...
 	ld	r17, Y+		; load second byte
@@ -4095,65 +4076,43 @@ RFM12_GetInternalStatus:
 	mov	r5, r16
 	ret
 
-
 RFM12_GetRfm12Status:
 	mov	r16, r5
 	ori	r16, 4
 	mov	r5, r16
 	ret
 
-
-RFM12_StatusChange:
-	ld	r17, Y+
-
-	mov	r18, r17
-	andi	r18, 0x30
-	brne	RFM12_StatusChange_TXen
-
-	sbrc	r5, 0		; TX active
-	rjmp	RFM12_StatusChange_RXen
-
-	rjmp	RFM12_SendSpiCommand
-
-
-RFM12_StatusChange_TXen:
-	;; defer TX enable until fifo is filled
+RFM12_EnableRX:
 	mov	r16, r5
-	ori	r16, 2		; TX request ..
-	mov	r5, r16
-	rjmp 	RFM12_GetInternalStatus
-
-
-RFM12_StatusChange_RXen:
-	;; defer RX enable, TX is still active
-	mov	r6, r17		; keep config byte in fifo buffer
-	mov	r16, r5
-	andi	r16, 0xfd	; clear TX request ...
-	mov	r5, r16
-	rjmp 	RFM12_GetInternalStatus
-
-
-RFM12_SendByte:
-	mov	r16, r5
-	sbrc	r16, 5		; FIFO busy
-	ori	r16, 0x80	; set FIFO overrun (if FIFO was busy already)
-	ori	r16, 0x20	; set FIFO busy
-	andi	r16, 0xEF	; clear FIFO empty signalled
+	andi	r16, 0xfe	; clear tx flag, if set
+	ori	r16, 0x02	; set rx flag
 	mov	r5, r16
 
-	ld	r6, Y+
-
-	sbrc	r5, 0		; TX active
-	rjmp	RFM12_GetInternalStatus ; send ack
-
-	;; trigger tx
-	mov	r16, r5
-	ori	r16, 3		; set TX flags
-	mov	r5, r16
+	ser	r16
+	mov	r4, r16		; set r4 to 0xFF aka length yet unknown.
 	
+	rcall	RFM12_ConfigureSpi
+
 	ldi	r16, 0x82
-	ldi	r17, 0x38
-	rjmp 	RFM12_SendSpiCommand ; send SPI command and ack
+	ldi	r17, 0x08	; trx off
+	rcall	RFM12_DoSpi
+
+	ldi	r16, 0x82
+	ldi	r17, 0xc8	; rx on
+	rcall	RFM12_DoSpi
+
+	ldi	r16, 0xca
+	ldi	r17, 0x81	; set fifo mode
+	rcall	RFM12_DoSpi
+
+	ldi	r16, 0xca
+	ldi	r17, 0x83	; enable fifo
+	rcall	RFM12_DoSpi
+	
+	rcall	RFM12_RestoreSpi
+
+	rjmp RFM12_GetInternalStatus ; send ack
+
 	
 	
 ;;; Configure SPI hardware for RFM12 use.
