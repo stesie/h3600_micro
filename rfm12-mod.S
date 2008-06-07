@@ -3995,7 +3995,11 @@ RX_Handler_MSG_RFM12:
 
 	cpi	r16, 2
 	breq	RFM12_Packet_valid
-	ret			; get out here -> discard packet
+
+	clr	r16
+	sts	0x0065, r16
+	ret			; get out here -> invalid request
+
 
 RFM12_Packet_valid:
 	ld	r16, Y+		; load first byte
@@ -4205,6 +4209,11 @@ TX_RFM12_Status:
 	sbi	UCR, 5
 	sei
 
+	;; clear request flag
+	mov	r16, r5
+	andi	r16, 0xfb	; ~0x04 -> clear bit 2
+	mov	r5, r16
+
 	rjmp	Label158	; back to mainloop
 
 
@@ -4232,5 +4241,10 @@ TX_RFM12_Internal_Status:
 	cli
 	sbi	UCR, 5
 	sei
-	
+
+	;; clear request flag
+	mov	r16, r5
+	andi	r16, 0xf7	; ~0x08 -> clear bit 3
+	mov	r5, r16
+
 	rjmp	Label158	; back to mainloop
