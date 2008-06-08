@@ -4056,7 +4056,13 @@ RFM12_Packet_valid:
 
 	cpi	r16, 0xfe	; enable RX
 	breq	RFM12_EnableRX
-	
+
+	cpi	r16, 0xf0	; more data ...
+	breq	RFM12_SendData
+
+	cpi	r16, 0xf1	; enable TX/initial data
+	breq	RFM12_EnableTX
+
 	cpi	r16, 0x00	; get rfm12 status request
 	breq	RFM12_GetRfm12Status
 
@@ -4111,10 +4117,51 @@ RFM12_EnableRX:
 	
 	rcall	RFM12_RestoreSpi
 
-	rjmp RFM12_GetInternalStatus ; send ack
+	rjmp 	RFM12_GetInternalStatus ; send ack
 
+
+RFM12_EnableTX:
+	sbrc	r5, 0		; tx flag
+	rjmp	RFM12_SendData	; tx already triggered, just store data
+
+	mov	r16, r5
+	andi	r16, 0xfd	; clear rx flag
+	ori	r16, 0x01	; set tx flag
+	mov	r5, r16
+
+	rcall	RFM12_ConfigureSpi
+
+	ldi	r16, 0x82
+	ldi	r17, 0x08	; trx off
+	rcall	RFM12_DoSpi
+
+	cli			; disable ints, so we can savely set r6 up
 	
+	ldi	r16, 0x82
+	ldi	r17, 0x38	; tx on
+	rcall	RFM12_DoSpi
+	rcall	RFM12_RestoreSpi
+
+	;; fall through ...
+RFM12_SendData:
+	cli
 	
+	mov     r16, r5
+	sbrc    r16, 5          ; FIFO busy
+	ori     r16, 0x80 	; set FIFO overrun (if FIFO was busy already)
+	ori     r16, 0x20       ; set FIFO busy
+	andi    r16, 0xEF       ; clear FIFO empty signalled
+	mov     r5, r16
+
+	ld	r6, Y+		; get the byte
+
+	sei
+
+	clr	r16
+	sts	0x0065, r16
+	ret			; get out, no reply.
+
+
 ;;; Configure SPI hardware for RFM12 use.
 .global RFM12_ConfigureSpi
 	.type	RFM12_ConfigureSpi, @function
