@@ -90,16 +90,59 @@ RFM12_CareForFifo:
 	rjmp	RFM12_CareForFifo_RX
 
 	;; RGIT set, i.e. TX completed, provide next byte.
+	push	r28
+	push	r29
+
+	mov	r29, 0x01
+	mov	r28, r6
+	ori	r28, 0x40	; Y -> 0x014n or 0x15n
+
+	ldi	r16, 0xb8
+	ld	r17, Y
+	rcall	RFM12_DoSpi	; send byte to RFM12 ...
+
+	mov	r16, r28
+	andi	r16, 0x0f	; r16 = n
+
+	andi	r28, 0xf0	; Y -> 0x140 or 0x150
+	ld	r17, Y		; r17 = block length
+
+	cp	r16, r17
+	brne	RFM12_CareFifo_TX_WithinBlock
+
+	;; end of block reached
+	sbrc	r5, 5		; busy flag
+	rjmp	RFM12_CareFifo_TX_GotMoreData
+
+	;; turn of tx
+	ldi	r16, 0x82
+	ldi	r17, 0x08
+	rcall	RFM12_DoSpi	; kill tx
+
 	mov	r16, r5
-	sbrs	r16, 5		; FIFO busy
-	ori	r16, 0x40	; set FIFO underrun (FIFO bit clear)
-	andi	r16, 0xDF	; clear FIFO busy
+	andi	r16, 0xfe	; clear tx flag
+	mov	r5, r16
+
+	rjmp	RFM12_CareFifo_TX_Out
+
+RFM12_CareFifo_TX_GotMoreData:
+	;; more data available, switch blocks
+	mov	r16, r6
+	com	r16		; flip block switch bit
+	andi	r16, 0x10	; keep only that one
+	mov	r6, r16
+
+	mov	r16, r5
+	andi	r16, 0xcf	; clear fifo busy and notified bit
 	mov	r5, r16
 	
-	ldi	r16, 0xb8
-	mov	r17, r6
-	rcall	RFM12_DoSpi	; commit data
+RFM12_CareFifo_TX_WithinBlock:
+	inc	r6
 
+RFM12_CareFifo_TX_Out:
+	pop	r29
+	pop	r28
+	
 	ret
 
 
@@ -1229,9 +1272,9 @@ SPI_Int_Out:
 
 __vect_Reset:
 	cli
-	ldi     r16, 0x01       ; 1
+	ldi     r16, hi8(RAMEND)
 	out     SPH, r16
-	ldi     r16, 0x5f       ; 95
+	ldi     r16, lo8(RAMEND)
 	out     SPL, r16
 	in      r16, MCUSR
 	sbrs    r16, 0          ; 0x01 = 1
@@ -1334,6 +1377,7 @@ Label121:
 	ldi     r25, 0x00       ; 0
 	ldi     r22, 0x00       ; 0
 	mov	r5, r22
+	mov	r6, r17		; XXX initialize to 0x7c for reasons of signif.
 	sts     0x006c, r16
 	sts     0x0068, r16
 	sts     0x0065, r16
@@ -4037,16 +4081,17 @@ RX_Handler_MSG_RFM12:
 	ldi	r28, 0xde
 	clr	r29		; Y -> Recv Data Buffer
 	
-	ld	r16, Y+		; load command to r16
-	andi	r16, 0x0f	; r16 = length of data
+	ld	r18, Y+		; load command to r18
+	andi	r18, 0x0f	; r18 = length of data
 
-	cpi	r16, 2
-	breq	RFM12_Packet_valid
+#if 0
+	cpi	r18, 2
+	brge	RFM12_Packet_valid ; len >= 2
 
 	clr	r16
 	sts	0x0065, r16
 	ret			; get out here -> invalid request
-
+#endif
 
 RFM12_Packet_valid:
 	ld	r16, Y+		; load first byte
@@ -4125,9 +4170,12 @@ RFM12_EnableTX:
 	rjmp	RFM12_SendData	; tx already triggered, just store data
 
 	mov	r16, r5
-	andi	r16, 0xfd	; clear rx flag
+	andi	r16, 0x0d	; clear rx flag, fifo busy, under- and overrun
 	ori	r16, 0x01	; set tx flag
 	mov	r5, r16
+
+	;; we don't set the fifo busy flag, so the mainloop will immediately
+	;; notify the ARM that it can supply more data, if necessary.
 
 	rcall	RFM12_ConfigureSpi
 
@@ -4142,24 +4190,65 @@ RFM12_EnableTX:
 	rcall	RFM12_DoSpi
 	rcall	RFM12_RestoreSpi
 
-	;; fall through ...
+	ldi	r27, 0x01
+	ldi	r26, 0x40	; load to 0x0140 ff. (X ptr)
+
+	ldi	r16, 0x41
+	mov	r6, r16		; first byte to send will be at 0x0141
+
+	rjmp	RFM12_CopySendData
+
 RFM12_SendData:
 	cli
+
+	sbrc	r5, 0
+	rjmp	RFM12_SendNoUnderrun
+
+	;; TX has been disabled meanwhile ...
+	mov	r16, r5
+	ori	r16, 0x40	; underrun
+	mov	r5, r16
+	rjmp	RFM12_SendOut	; no need to store the data, won't be sent
 	
+RFM12_SendNoUnderrun:
+	;; set X ptr to either 0x140 or 0x150 (depending on active tx block)
+	ldi	r27, 0x01
+	mov	r26, r6
+	com	r26		; flip bit 4
+	andi	r26, 0x10	; extract bit 4
+	ori	r26, 0x40
+
 	mov     r16, r5
 	sbrc    r16, 5          ; FIFO busy
 	ori     r16, 0x80 	; set FIFO overrun (if FIFO was busy already)
 	ori     r16, 0x20       ; set FIFO busy
-	andi    r16, 0xEF       ; clear FIFO empty signalled
+	andi    r16, 0xef       ; clear FIFO empty signalled
 	mov     r5, r16
 
-	ld	r6, Y+		; get the byte
+	;; fall through...
+RFM12_CopySendData:
+	;; X = 0x0140 or 0x0150
+	;; Y = first byte to copy
+		
+	;; r18 = number of bytes to copy + 1
+	dec	r18		; r18 = number of bytes to copy
 
+	st	X+, r18		; write block length to 0x0140/0x0150
+
+.copyloop:
+	ld	r16, Y+
+	st	X+, r16
+	dec	r18
+	brne	.copyloop
+	
+	;; fall through...
+RFM12_SendOut:
 	sei
+	rjmp	RFM12_GetInternalStatus ; XXX
 
-	clr	r16
-	sts	0x0065, r16
-	ret			; get out, no reply.
+	;clr	r16
+	;sts	0x0065, r16
+	;ret			; get out, don't send a reply.
 
 
 ;;; Configure SPI hardware for RFM12 use.
