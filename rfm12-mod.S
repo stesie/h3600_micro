@@ -93,48 +93,41 @@ RFM12_CareForFifo:
 	push	r28
 	push	r29
 
-	mov	r29, 0x01
-	mov	r28, r6
-	ori	r28, 0x40	; Y -> 0x014n or 0x15n
+	ldi	r29, 0x01
+	mov	r28, r6		; Y -> 0x0131 ff.
 
 	ldi	r16, 0xb8
 	ld	r17, Y
 	rcall	RFM12_DoSpi	; send byte to RFM12 ...
 
 	mov	r16, r28
-	andi	r16, 0x0f	; r16 = n
+	andi	r16, 0x0f	; r16 = n (i.e. offset in buffer)
 
-	andi	r28, 0xf0	; Y -> 0x140 or 0x150
+	andi	r28, 0xf0	; Y -> 0x0130, 0x140, etc.
 	ld	r17, Y		; r17 = block length
 
 	cp	r16, r17
 	brne	RFM12_CareFifo_TX_WithinBlock
 
 	;; end of block reached
-	sbrc	r5, 5		; busy flag
-	rjmp	RFM12_CareFifo_TX_GotMoreData
+	cp	r28, r4		; compare block nr. against last block to send
+	brne	RFM12_CareFifo_TX_GotMoreData
 
-	;; turn of tx
-	ldi	r16, 0x82
-	ldi	r17, 0x08
-	rcall	RFM12_DoSpi	; kill tx
+	;; turn of tx (and enable rx)
+	rcall	RFM12_DoSpiRxEn	; clobbers r16 and r17
 
 	mov	r16, r5
 	andi	r16, 0xfe	; clear tx flag
+	ori	r16, 0x02	; set rx flag
 	mov	r5, r16
 
 	rjmp	RFM12_CareFifo_TX_Out
 
 RFM12_CareFifo_TX_GotMoreData:
-	;; more data available, switch blocks
-	mov	r16, r6
-	com	r16		; flip block switch bit
-	andi	r16, 0x10	; keep only that one
-	mov	r6, r16
-
-	mov	r16, r5
-	andi	r16, 0xcf	; clear fifo busy and notified bit
-	mov	r5, r16
+	;; move r6 to next block
+	ldi	r16, 0x10
+	add	r28, r16
+	mov	r6, r28
 	
 RFM12_CareFifo_TX_WithinBlock:
 	inc	r6
@@ -1441,6 +1434,9 @@ main_cpu_irq_handler_start:
 	sbrc	r16, 0		; tx-active
 	rjmp	.txactive
 
+	sbrs	r16, 1		; rx-active
+	rjmp	Label158	; neither tx nor rx active -> out
+	
 	sbrc	r16, 5		; fifo busy
 	rjmp	Label123
 
@@ -4084,33 +4080,37 @@ RX_Handler_MSG_RFM12:
 	ld	r18, Y+		; load command to r18
 	andi	r18, 0x0f	; r18 = length of data
 
-#if 0
 	cpi	r18, 2
 	brge	RFM12_Packet_valid ; len >= 2
 
 	clr	r16
 	sts	0x0065, r16
 	ret			; get out here -> invalid request
-#endif
 
 RFM12_Packet_valid:
 	ld	r16, Y+		; load first byte
 
-	cpi	r16, 0xff	; get internal status request
-	breq 	RFM12_GetInternalStatus
-
-	cpi	r16, 0xfe	; enable RX
+	cpi	r16, 0xf1	; enable RX
 	breq	RFM12_EnableRX
 
-	cpi	r16, 0xf0	; more data ...
-	breq	RFM12_SendData
-
-	cpi	r16, 0xf1	; enable TX/initial data
+	cpi	r16, 0xf2	; enable TX/initial data
 	breq	RFM12_EnableTX
 
+	cpi	r16, 0xf3	; prepare tx/fill first buffer
+	breq	RFM12_PrepareTX
+
+	cpi	r16, 0xf0	; get internal status request
+	breq 	RFM12_GetInternalStatus
+
+	andi	r16, 0xf0
+	cpi	r16, 0xf0
+	breq	RFM12_FillBuffer ; f3..ff -> fill buffer
+
+	dec	r28
+	ld	r16, Y+		; load first byte again
+	
 	cpi	r16, 0x00	; get rfm12 status request
 	breq	RFM12_GetRfm12Status
-
 
 	;; normal SPI command ...
 	ld	r17, Y+		; load second byte
@@ -4143,7 +4143,15 @@ RFM12_EnableRX:
 	mov	r4, r16		; set r4 to 0xFF aka length yet unknown.
 	
 	rcall	RFM12_ConfigureSpi
+	rcall	RFM12_DoSpiRxEn
+	rcall	RFM12_RestoreSpi
 
+	rjmp 	RFM12_GetInternalStatus ; send ack
+
+
+;;; send SPI commands necessary to enable RX mode
+;;; (clobbers r16 and r17)
+RFM12_DoSpiRxEn:
 	ldi	r16, 0x82
 	ldi	r17, 0x08	; trx off
 	rcall	RFM12_DoSpi
@@ -4159,23 +4167,30 @@ RFM12_EnableRX:
 	ldi	r16, 0xca
 	ldi	r17, 0x83	; enable fifo
 	rcall	RFM12_DoSpi
-	
-	rcall	RFM12_RestoreSpi
-
-	rjmp 	RFM12_GetInternalStatus ; send ack
+	ret
 
 
 RFM12_EnableTX:
-	sbrc	r5, 0		; tx flag
-	rjmp	RFM12_SendData	; tx already triggered, just store data
+	rcall	RFM12_ConfigureSpi
 
+	ld	r4, Y		; last buffer to transmit -> r4
+	swap	r4
+
+	ldi	r16, 0x31
+	mov	r6, r16		; first byte to send will be at 0x0131
+	
+	ldi	r16, 0x82
+	ldi	r17, 0x38	; tx on
+	rcall	RFM12_DoSpi
+	rcall	RFM12_RestoreSpi
+
+	rjmp	RFM12_GetInternalStatus
+
+RFM12_PrepareTX:
 	mov	r16, r5
-	andi	r16, 0x0d	; clear rx flag, fifo busy, under- and overrun
+	andi	r16, 0xfd	; clear rx flag
 	ori	r16, 0x01	; set tx flag
 	mov	r5, r16
-
-	;; we don't set the fifo busy flag, so the mainloop will immediately
-	;; notify the ARM that it can supply more data, if necessary.
 
 	rcall	RFM12_ConfigureSpi
 
@@ -4183,72 +4198,41 @@ RFM12_EnableTX:
 	ldi	r17, 0x08	; trx off
 	rcall	RFM12_DoSpi
 
-	cli			; disable ints, so we can savely set r6 up
-	
-	ldi	r16, 0x82
-	ldi	r17, 0x38	; tx on
-	rcall	RFM12_DoSpi
 	rcall	RFM12_RestoreSpi
 
+RFM12_FillBuffer:
+	dec	r28
+	ld	r16, Y+		; restore 0xFn in r16
+
 	ldi	r27, 0x01
-	ldi	r26, 0x40	; load to 0x0140 ff. (X ptr)
-
-	ldi	r16, 0x41
-	mov	r6, r16		; first byte to send will be at 0x0141
-
-	rjmp	RFM12_CopySendData
-
-RFM12_SendData:
-	cli
-
-	sbrc	r5, 0
-	rjmp	RFM12_SendNoUnderrun
-
-	;; TX has been disabled meanwhile ...
-	mov	r16, r5
-	ori	r16, 0x40	; underrun
-	mov	r5, r16
-	rjmp	RFM12_SendOut	; no need to store the data, won't be sent
-	
-RFM12_SendNoUnderrun:
-	;; set X ptr to either 0x140 or 0x150 (depending on active tx block)
-	ldi	r27, 0x01
-	mov	r26, r6
-	com	r26		; flip bit 4
-	andi	r26, 0x10	; extract bit 4
-	ori	r26, 0x40
+	mov	r26, r16	; construct X-ptr from instr., 0xFE > 0x1E0..
+	swap	r26
+	andi	r26, 0xf0
 
 	mov     r16, r5
-	sbrc    r16, 5          ; FIFO busy
-	ori     r16, 0x80 	; set FIFO overrun (if FIFO was busy already)
-	ori     r16, 0x20       ; set FIFO busy
-	andi    r16, 0xef       ; clear FIFO empty signalled
+	andi    r16, 0xcf       ; clr FIFO busy and FIFO empty signalled
 	mov     r5, r16
 
-	;; fall through...
-RFM12_CopySendData:
-	;; X = 0x0140 or 0x0150
+	;; X = 0x0130, 0x0140, etc.
 	;; Y = first byte to copy
-		
 	;; r18 = number of bytes to copy + 1
 	dec	r18		; r18 = number of bytes to copy
 
-	st	X+, r18		; write block length to 0x0140/0x0150
+	st	X+, r18		; write block length to 0x0130/0x0140
 
 .copyloop:
 	ld	r16, Y+
 	st	X+, r16
 	dec	r18
 	brne	.copyloop
-	
-	;; fall through...
-RFM12_SendOut:
-	sei
-	rjmp	RFM12_GetInternalStatus ; XXX
 
-	;clr	r16
-	;sts	0x0065, r16
-	;ret			; get out, don't send a reply.
+	;; set a mark (for debugging)
+	ldi	r16, 0xee
+	st	X+, r16
+
+	clr	r16
+	sts	0x0065, r16
+	ret			; get out, don't send a reply.
 
 
 ;;; Configure SPI hardware for RFM12 use.
