@@ -116,11 +116,6 @@ RFM12_CareForFifo:
 	;; turn of tx (and enable rx)
 	rcall	RFM12_DoSpiRxEn	; clobbers r16 and r17
 
-	mov	r16, r5
-	andi	r16, 0xfe	; clear tx flag
-	ori	r16, 0x02	; set rx flag
-	mov	r5, r16
-
 	rjmp	RFM12_CareFifo_TX_Out
 
 RFM12_CareFifo_TX_GotMoreData:
@@ -163,7 +158,11 @@ RFM12_CareForFifo_RX:
 	ldi	r16, 0x82
 	ldi	r17, 0x08
 	rcall	RFM12_DoSpi	; RX stop
-	
+
+	mov	r16, r5
+	andi	r16, 0xfd	; clear rx flag
+	mov	r5, r16
+
 RFM12_RX_NotComplete:
 	ret
 
@@ -182,9 +181,14 @@ __vect_ExternalInt1:
 	rcall	RFM12_ConfigureSpi
 	rcall	RFM12_GetIrqStatus 	; read status to r16
 
+	mov	r17, r5
+	andi	r17, 0x03	; rx active, tx active
+	breq	.notransf
+	
 	sbrc	r16, 7
 	rcall	RFM12_CareForFifo
 
+.notransf:
 	rcall	RFM12_RestoreSpi
 
 	pop	r17
@@ -1434,9 +1438,6 @@ main_cpu_irq_handler_start:
 	sbrc	r16, 0		; tx-active
 	rjmp	.txactive
 
-	sbrs	r16, 1		; rx-active
-	rjmp	Label158	; neither tx nor rx active -> out
-	
 	sbrc	r16, 5		; fifo busy
 	rjmp	Label123
 
@@ -1516,8 +1517,8 @@ Label124:
 	breq	RFM12_Notify
 
 	mov	r16, r5
-	andi	r16, 0x22	; mask fifo busy, rx active
-	cpi	r16, 0x22	; if fifo busy, rx active ...
+	andi	r16, 0x21	; mask fifo busy, tx active
+	cpi	r16, 0x20	; if fifo busy, rx active ...
 	breq	RFM12_Notify
 
 	sbrs    r22, 0          ; 0x01 = 1
@@ -4134,14 +4135,6 @@ RFM12_GetRfm12Status:
 	ret
 
 RFM12_EnableRX:
-	mov	r16, r5
-	andi	r16, 0xfe	; clear tx flag, if set
-	ori	r16, 0x02	; set rx flag
-	mov	r5, r16
-
-	ser	r16
-	mov	r4, r16		; set r4 to 0xFF aka length yet unknown.
-	
 	rcall	RFM12_ConfigureSpi
 	rcall	RFM12_DoSpiRxEn
 	rcall	RFM12_RestoreSpi
@@ -4152,6 +4145,14 @@ RFM12_EnableRX:
 ;;; send SPI commands necessary to enable RX mode
 ;;; (clobbers r16 and r17)
 RFM12_DoSpiRxEn:
+	mov	r16, r5
+	andi	r16, 0xfe	; clear tx flag, if set
+	ori	r16, 0x02	; set rx flag
+	mov	r5, r16
+
+	ser	r16
+	mov	r4, r16		; set r4 to 0xFF aka length yet unknown.
+	
 	ldi	r16, 0x82
 	ldi	r17, 0x08	; trx off
 	rcall	RFM12_DoSpi
