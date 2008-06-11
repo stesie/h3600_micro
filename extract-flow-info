@@ -8,6 +8,7 @@ my $last_was_skip = 0;
 while (<>) {
   chop $_;
   s/;.*//;  # strip comments
+  s!//.*!!;  # strip comments
 
   if (m/^\s*$/) { next }	# empty line
   if (m/^\.[a-z]+($| )/) { next }	# .equ or something alike

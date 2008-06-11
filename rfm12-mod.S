@@ -1445,8 +1445,8 @@ main_cpu_irq_handler_start:
 	rjmp	Label158
 	
 .txactive:
-	andi	r16, 0x30	; fifo busy + fifo empty signaled
-	breq	Label123	; fifo clean and not signaled -> notify!
+	sbrs	r16, 4	        ; fifo empty signaled
+	breq	Label123
 	
 	rjmp    Label158
 
@@ -1465,62 +1465,8 @@ Label123:
 	rjmp    Label158
 
 
-RFM12_Notify:
-	ldi	r28, 0xc0
-	clr	r29
-	sts	0x00d1, r28
-
-	ldi	r16, 0x02
-	st	Y+, r16		; SOF
-
-	ldi	r16, 0xa0
-	
-	mov	r18, r5
-	sbrs	r18, 0		; tx active
-	inc	r16		; rx active -> set len to 1.
-
-	st	Y+, r16		; store command id/len
-	mov	r17, r16	; build crc in r17
-
-	sbrc	r18, 0		; tx active
-	rjmp 	RFM12_Notify_TX
-
-	st	Y+, r6		; provide received byte
-	add	r17, r6
-
-	andi	r18, 0xdf	; clear fifo busy flag
-
-RFM12_Notify_TX:
-	st	Y+, r17		; crc
-	sts	0x00d2, r28
-
-	ori	r18, 0x10	; set `fifo empty signaled' flag
-	mov	r5, r18
-	
-	cli
-	sbi 	UCR, 5
-	sei
-
-	rjmp	Label158
-
 
 Label124:
-	;; check for rfm12 requests ...
-	mov	r16, r5
-	sbrc	r16, 2		; 4 -> rfm12 status
-	rjmp	TX_RFM12_Status
-	sbrc	r16, 3		; 8 -> internal status
-	rjmp	TX_RFM12_Internal_Status
-
-	andi	r16, 0x31	; mask fifo busy, fifo signalled, tx active
-	cpi	r16, 0x01	; if fifo clear, not signalled, tx active
-	breq	RFM12_Notify
-
-	mov	r16, r5
-	andi	r16, 0x21	; mask fifo busy, tx active
-	cpi	r16, 0x20	; if fifo busy, rx active ...
-	breq	RFM12_Notify
-
 	sbrs    r22, 0          ; 0x01 = 1
 	rjmp    TX_VersionAck
 
@@ -1973,7 +1919,7 @@ Label155:
 
 TX_ThermalSensorAck:
 	sbrs    r22, 2          ; 0x04 = 4
-	rjmp    Label158
+	rjmp    Check_RFM12_AckStatus
 	sbic    PINB, 3         ; 0x08 = 8
 	rjmp    Label157
 	ori     r23, 0x01       ; 1
@@ -2006,20 +1952,62 @@ Label157:
 	andi    r22, 0xfb       ; 251
 
 
+Check_RFM12_AckStatus:
+	;; check for rfm12 requests ...
+	mov	r16, r5
+	sbrc	r16, 2		; 4 -> rfm12 status
+	rjmp	TX_RFM12_Status
+	sbrc	r16, 3		; 8 -> internal status
+	rjmp	TX_RFM12_Internal_Status
 
+	andi	r16, 0x11	; fifo signalled, tx active
+	cpi	r16, 0x01	; if not signalled, tx active
+	breq	RFM12_Notify
 
+	mov	r16, r5
+	andi	r16, 0x21	; mask fifo busy, tx active
+	cpi	r16, 0x20	; if fifo busy, rx active ...
+	//breq	RFM12_Notify
+	brne 	Label158
 
+	;; fall through
+RFM12_Notify:
+	ldi	r28, 0xc0
+	clr	r29
+	sts	0x00d1, r28
 
+	ldi	r16, 0x02
+	st	Y+, r16		; SOF
 
+	ldi	r16, 0xa0
+	
+	mov	r18, r5
+	sbrs	r18, 0		; tx active
+	inc	r16		; rx active -> set len to 1.
 
+	st	Y+, r16		; store command id/len
+	mov	r17, r16	; build crc in r17
 
+	sbrc	r18, 0		; tx active
+	rjmp 	RFM12_Notify_TX
 
+	st	Y+, r6		; provide received byte
+	add	r17, r6
 
+	andi	r18, 0xdf	; clear fifo busy flag
 
+RFM12_Notify_TX:
+	st	Y+, r17		; crc
+	sts	0x00d2, r28
 
+	ori	r18, 0x10	; set `fifo empty signaled' flag
+	mov	r5, r18
+	
+	cli
+	sbi 	UCR, 5
+	sei
 
-
-
+	//rjmp	Label158
 
 
 Label158:
