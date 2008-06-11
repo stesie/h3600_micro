@@ -1972,6 +1972,8 @@ Check_RFM12_AckStatus:
 
 	;; fall through
 RFM12_Notify:
+	ori	r23, 0x01	; skip ack-block until uart tx done
+
 	ldi	r28, 0xc0
 	clr	r29
 	sts	0x00d1, r28
@@ -4307,6 +4309,8 @@ TX_RFM12_Status:
 
 	rcall	RFM12_RestoreSpi
 
+	ori	r23, 0x01	; skip ack-block until uart tx done
+
 	ldi	r28, 0xc0
 	clr	r29
 	sts	0x00d1, r28
@@ -4342,6 +4346,8 @@ TX_RFM12_Status:
 
 
 TX_RFM12_Internal_Status:
+	ori	r23, 0x01	; skip ack-block until uart tx done
+
 	ldi	r28, 0xc0
 	clr	r29
 	sts	0x00d1, r28
