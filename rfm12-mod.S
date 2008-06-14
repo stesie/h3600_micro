@@ -42,6 +42,8 @@ __vect_ExternalInt0:
 	sbic    PINB, 3         ; 0x08 = 8
 	rjmp    Label2
 	sbi     PORTD, 7        ; 0x80 = 128
+	sbis	PORTD, 5
+	rjmp	Label2		; don't allow INT1 if "normal" CS is active
 	mov     r19, r9
 	andi    r19, 0x07       ; 7
 	brne    Label2
@@ -178,8 +180,8 @@ __vect_ExternalInt1:
 	push	r17
 
 	;; check whether the rfm12 caused the interrupt
-	rcall	RFM12_ConfigureSpi
-	rcall	RFM12_GetIrqStatus 	; read status to r16
+	rcall	RFM12_ConfigureSpi ; no need to cli (in interrupt context)
+	rcall	RFM12_GetIrqStatus ; read status to r16
 
 	mov	r17, r5
 	andi	r17, 0x03	; rx active, tx active
@@ -2519,6 +2521,9 @@ Label213:
 
 Label214:
 main_r9_handler_start:
+	sbis	PORTD, 5	; don't execute handler if "internal" spi used
+	rjmp	Label240	; -> end of r9-handler...
+
 	mov     r16, r9
 	sbrs    r16, 0          ; 0x01 = 1
 	rjmp    Label215
@@ -2820,6 +2825,11 @@ Label241:
 	lds     r17, 0x00f5
 	ori     r17, 0x02       ; 2
 	sts     0x00f5, r17
+
+	in	r17, GIMSK
+	andi	r17, 0x7f	; 127 -> disable rfm12/tp interrupt
+	out	GIMSK, r17
+	
 	cbi     PORTD, 5        ; 0x20 = 32
 	clr     r16
 	sts     0x00a1, r16
@@ -2839,6 +2849,11 @@ Label242:
 	lds     r17, 0x00f5
 	ori     r17, 0x01       ; 1
 	sts     0x00f5, r17
+
+	in	r17, GIMSK
+	andi	r17, 0x7f	; 127 -> disable rfm12/tp interrupt
+	out	GIMSK, r17
+
 	cbi     PORTD, 5        ; 0x20 = 32
 	clr     r29
 	ldi     r28, 0x90       ; 144
@@ -2884,11 +2899,13 @@ Label245:
 	lds     r17, 0x00f5
 	ori     r17, 0x04       ; 4
 	sts     0x00f5, r17
+	cli
 	cbi     PORTD, 5        ; 0x20 = 32
 	nop
 	nop
 	nop
 	sbi     PORTD, 5        ; 0x20 = 32
+	sei
 	ldi     r16, 0x30       ; 48
 
 
@@ -2921,11 +2938,13 @@ Label247:
 	lds     r17, 0x00f5
 	ori     r17, 0x08       ; 8
 	sts     0x00f5, r17
+	cli
 	cbi     PORTD, 5        ; 0x20 = 32
 	nop
 	nop
 	nop
 	sbi     PORTD, 5        ; 0x20 = 32
+	sei
 	ldi     r16, 0x30       ; 48
 
 
@@ -2984,6 +3003,11 @@ Label251:
 	sts     0x00f3, r16
 	andi    r17, 0xfe       ; 254
 	sts     0x00f5, r17
+
+	in	r17, GIMSK
+	ori	r17, 0x80	; enable rfm12/tp interrupt
+	out	GIMSK, r17
+
 	ldi     r27, 0x01       ; 1
 	ldi     r26, 0x00       ; 0
 	clr     r29
@@ -3018,6 +3042,11 @@ Label254:
 	sbrs    r17, 1          ; 0x02 = 2
 	rjmp    Label260
 	sbi     PORTD, 5        ; 0x20 = 32
+
+	in	r18, GIMSK
+	ori	r18, 0x80	; enable rfm12/tp interrupt
+	out	GIMSK, r18
+
 	lds     r18, 0x00f6
 	sbrc    r18, 0          ; 0x01 = 1
 	rjmp    Label255
@@ -3050,6 +3079,11 @@ Label256:
 	dec     r18
 	brne    Label256
 	sts     0x00a2, r28
+
+	in	r17, GIMSK
+	andi	r17, 0x7f	; 127 -> disable rfm12/tp interrupt
+	out	GIMSK, r17
+
 	cbi     PORTD, 5        ; 0x20 = 32
 	mov     r17, r16
 	ldi     r16, 0x02       ; 2
@@ -3066,6 +3100,11 @@ Label257:
 Label258:
 	ld      r17, X+
 	st      Y+, r17
+
+	in	r16, GIMSK
+	andi	r16, 0x7f	; 127 -> disable rfm12/tp interrupt
+	out	GIMSK, r16
+
 	sts     0x00a2, r28
 	cbi     PORTD, 5        ; 0x20 = 32
 	ldi     r16, 0x01       ; 1
@@ -4106,10 +4145,13 @@ RFM12_Packet_valid:
 	;; normal SPI command ...
 	ld	r17, Y+		; load second byte
 
-RFM12_SendSpiCommand:	
+	;; fall through
+RFM12_SendSpiCommand:
+	cli
 	rcall	RFM12_ConfigureSpi
 	rcall	RFM12_DoSpi
 	rcall	RFM12_RestoreSpi
+	sei
 	
 	;; fall through ...
 RFM12_GetInternalStatus:
@@ -4125,43 +4167,17 @@ RFM12_GetRfm12Status:
 	ret
 
 RFM12_EnableRX:
+	cli
 	rcall	RFM12_ConfigureSpi
 	rcall	RFM12_DoSpiRxEn
 	rcall	RFM12_RestoreSpi
+	sei
 
 	rjmp 	RFM12_GetInternalStatus ; send ack
 
 
-;;; send SPI commands necessary to enable RX mode
-;;; (clobbers r16 and r17)
-RFM12_DoSpiRxEn:
-	mov	r16, r5
-	andi	r16, 0xfe	; clear tx flag, if set
-	ori	r16, 0x02	; set rx flag
-	mov	r5, r16
-
-	ser	r16
-	mov	r4, r16		; set r4 to 0xFF aka length yet unknown.
-	
-	ldi	r16, 0x82
-	ldi	r17, 0x08	; trx off
-	rcall	RFM12_DoSpi
-
-	ldi	r16, 0x82
-	ldi	r17, 0xc8	; rx on
-	rcall	RFM12_DoSpi
-
-	ldi	r16, 0xca
-	ldi	r17, 0x81	; set fifo mode
-	rcall	RFM12_DoSpi
-
-	ldi	r16, 0xca
-	ldi	r17, 0x83	; enable fifo
-	rcall	RFM12_DoSpi
-	ret
-
-
 RFM12_EnableTX:
+	cli
 	rcall	RFM12_ConfigureSpi
 
 	ld	r4, Y		; last buffer to transmit -> r4
@@ -4174,6 +4190,7 @@ RFM12_EnableTX:
 	ldi	r17, 0x38	; tx on
 	rcall	RFM12_DoSpi
 	rcall	RFM12_RestoreSpi
+	sei
 
 	rjmp	RFM12_GetInternalStatus
 
@@ -4183,6 +4200,7 @@ RFM12_PrepareTX:
 	ori	r16, 0x01	; set tx flag
 	mov	r5, r16
 
+	cli
 	rcall	RFM12_ConfigureSpi
 
 	ldi	r16, 0x82
@@ -4190,6 +4208,7 @@ RFM12_PrepareTX:
 	rcall	RFM12_DoSpi
 
 	rcall	RFM12_RestoreSpi
+	sei
 
 RFM12_FillBuffer:
 	dec	r28
@@ -4224,6 +4243,39 @@ RFM12_FillBuffer:
 	clr	r16
 	sts	0x0065, r16
 	ret			; get out, don't send a reply.
+
+;;; send SPI commands necessary to enable RX mode
+;;; (clobbers r16 and r17)
+;;;
+;;; SPI needs to be configured suitable for RFM12,
+;;; interrupts should be disabled.
+RFM12_DoSpiRxEn:
+	mov	r16, r5
+	andi	r16, 0xfe	; clear tx flag, if set
+	ori	r16, 0x02	; set rx flag
+	mov	r5, r16
+
+	ser	r16
+	mov	r4, r16		; set r4 to 0xFF aka length yet unknown.
+	
+	ldi	r16, 0x82
+	ldi	r17, 0x08	; trx off
+	rcall	RFM12_DoSpi
+
+	ldi	r16, 0x82
+	ldi	r17, 0xc8	; rx on
+	rcall	RFM12_DoSpi
+
+	ldi	r16, 0xca
+	ldi	r17, 0x81	; set fifo mode
+	rcall	RFM12_DoSpi
+
+	ldi	r16, 0xca
+	ldi	r17, 0x83	; enable fifo
+	rcall	RFM12_DoSpi
+	ret
+
+
 
 
 ;;; Configure SPI hardware for RFM12 use.
@@ -4298,6 +4350,7 @@ RFM12_GetIrqStatus:
 
 TX_RFM12_Status:
 	;; Send SPI command 0x0000 to read status from RFM12
+	cli
 	rcall 	RFM12_ConfigureSpi
 	
 	clr	r16
@@ -4308,6 +4361,7 @@ TX_RFM12_Status:
 	push	r16
 
 	rcall	RFM12_RestoreSpi
+	sei
 
 	ori	r23, 0x01	; skip ack-block until uart tx done
 
