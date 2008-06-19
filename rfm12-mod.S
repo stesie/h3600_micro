@@ -42,7 +42,7 @@ __vect_ExternalInt0:
 	sbic    PINB, 3         ; 0x08 = 8
 	rjmp    Label2
 	sbi     PORTD, 7        ; 0x80 = 128
-	sbis	PORTD, 5
+	sbis	PORTD, 5	; chip select (sleeve)
 	rjmp	Label2		; don't allow INT1 if "normal" CS is active
 	mov     r19, r9
 	andi    r19, 0x07       ; 7
@@ -117,6 +117,10 @@ RFM12_CareForFifo:
 
 	;; turn of tx (and enable rx)
 	rcall	RFM12_DoSpiRxEn	; clobbers r16 and r17
+
+	mov	r16, r5
+	ori	r16, 0x10	; request notification
+	mov	r5, r16
 
 	rjmp	RFM12_CareFifo_TX_Out
 
@@ -1375,7 +1379,6 @@ Label121:
 	ldi     r24, 0x00       ; 0
 	ldi     r25, 0x00       ; 0
 	ldi     r22, 0x00       ; 0
-	mov	r5, r22
 	mov	r6, r17		; XXX initialize to 0x7c for reasons of signif.
 	sts     0x006c, r16
 	sts     0x0068, r16
@@ -1407,6 +1410,7 @@ Label121:
 	sts     0x00bd, r16
 	sts     0x00be, r16
 	sts     0x00bb, r16
+	mov	r5, r16
 	ldi     r16, 0xc0       ; 192
 	out     GIFR, r16
 	ldi     r16, 0xc0       ; 192
@@ -1421,6 +1425,23 @@ Label121:
 
 
 MainLoop_Start:
+	;; enable ext1 interrupt, if possible ...
+	in	r17, GIMSK
+	sbrc	r17, 7		; 0x80 - ext. int 1
+	rjmp	SkipIntEnable
+
+	sbis	PIND, 5		; chip select low
+	rjmp	SkipIntEnable
+	mov	r16, r9
+	andi	r16, 0x07
+	brne	SkipIntEnable
+
+	cli
+	ori	r17, 0x80
+	out	GIMSK, r17
+	sei
+
+SkipIntEnable:
 main_cpu_irq_handler_start:
 	sbrc    r23, 0          ; 0x01 = 1
 	rjmp    Label158
@@ -1432,24 +1453,9 @@ main_cpu_irq_handler_start:
 	brne    Label123
 
 	mov	r16, r5
-	andi	r16, 4 + 8	; rfm12 status request
+	andi	r16, 0x3c	; rfm12 notification needed
 	brne	Label123
 
-	;; check whether we have to emit fifo busy/empty interrupts
-	mov	r16, r5
-	sbrc	r16, 0		; tx-active
-	rjmp	.txactive
-
-	sbrc	r16, 5		; fifo busy
-	rjmp	Label123
-
-	;; hmm, nothing to notify about ...
-	rjmp	Label158
-	
-.txactive:
-	sbrs	r16, 4	        ; fifo empty signaled
-	breq	Label123
-	
 	rjmp    Label158
 
 
@@ -1956,22 +1962,18 @@ Label157:
 
 Check_RFM12_AckStatus:
 	;; check for rfm12 requests ...
-	mov	r16, r5
-	sbrc	r16, 2		; 4 -> rfm12 status
+	sbrc	r5, 2		; 4 -> rfm12 status
 	rjmp	TX_RFM12_Status
-	sbrc	r16, 3		; 8 -> internal status
+
+	sbrc	r5, 3		; 8 -> internal status
 	rjmp	TX_RFM12_Internal_Status
 
-	andi	r16, 0x11	; fifo signalled, tx active
-	cpi	r16, 0x01	; if not signalled, tx active
-	breq	RFM12_Notify
+	sbrc	r5, 4		; 16 -> notify
+	rjmp	RFM12_Notify
 
-	mov	r16, r5
-	andi	r16, 0x21	; mask fifo busy, tx active
-	cpi	r16, 0x20	; if fifo busy, rx active ...
-	//breq	RFM12_Notify
-	brne 	Label158
-
+	sbrs	r5, 5		; 32 -> fifo busy
+	rjmp	Label158	; fifo is clear
+	
 	;; fall through
 RFM12_Notify:
 	ori	r23, 0x01	; skip ack-block until uart tx done
@@ -1984,15 +1986,17 @@ RFM12_Notify:
 	st	Y+, r16		; SOF
 
 	ldi	r16, 0xa0
-	
+
+	cli
+
 	mov	r18, r5
-	sbrs	r18, 0		; tx active
-	inc	r16		; rx active -> set len to 1.
+	sbrc	r18, 5		; fifo busy
+	inc	r16		; is busy -> set len to 1.
 
 	st	Y+, r16		; store command id/len
 	mov	r17, r16	; build crc in r17
 
-	sbrc	r18, 0		; tx active
+	sbrs	r18, 5 		; fifo busy
 	rjmp 	RFM12_Notify_TX
 
 	st	Y+, r6		; provide received byte
@@ -2004,16 +2008,14 @@ RFM12_Notify_TX:
 	st	Y+, r17		; crc
 	sts	0x00d2, r28
 
-	ori	r18, 0x10	; set `fifo empty signaled' flag
+	andi	r18, 0xef	; clear notify flag
 	mov	r5, r18
 	
-	cli
 	sbi 	UCR, 5
 	sei
 
 	//rjmp	Label158
-
-
+	;; fall through ...
 Label158:
 main_adc_start:
 	sbrc    r24, 7          ; 0x80 = 128
@@ -2765,9 +2767,9 @@ Label238:
 	clr     r16
 	mov     r9, r16
 	sts     0x0064, r16
-	in      r16, GIMSK
-	ori     r16, 0x80       ; 128
-	out     GIMSK, r16
+	//in      r16, GIMSK
+	//ori     r16, 0x80       ; 128
+	//out     GIMSK, r16
 	ldi     r16, 0x80       ; 128
 	out     GIFR, r16
 	rjmp    Label240
@@ -3004,9 +3006,9 @@ Label251:
 	andi    r17, 0xfe       ; 254
 	sts     0x00f5, r17
 
-	in	r17, GIMSK
-	ori	r17, 0x80	; enable rfm12/tp interrupt
-	out	GIMSK, r17
+	//in	r17, GIMSK
+	//ori	r17, 0x80	; enable rfm12/tp interrupt
+	//out	GIMSK, r17
 
 	ldi     r27, 0x01       ; 1
 	ldi     r26, 0x00       ; 0
@@ -3043,9 +3045,9 @@ Label254:
 	rjmp    Label260
 	sbi     PORTD, 5        ; 0x20 = 32
 
-	in	r18, GIMSK
-	ori	r18, 0x80	; enable rfm12/tp interrupt
-	out	GIMSK, r18
+	//in	r18, GIMSK
+	//ori	r18, 0x80	; enable rfm12/tp interrupt
+	//out	GIMSK, r18
 
 	lds     r18, 0x00f6
 	sbrc    r18, 0          ; 0x01 = 1
@@ -3685,9 +3687,9 @@ Label295:
 	st      Y+, r16
 	clr     r17
 	mov     r9, r17
-	in      r16, GIMSK
-	ori     r16, 0x80       ; 128
-	out     GIMSK, r16
+	//in      r16, GIMSK
+	//ori     r16, 0x80       ; 128
+	//out     GIMSK, r16
 	ldi     r16, 0x80       ; 128
 	out     GIFR, r16
 	ret
@@ -4220,7 +4222,8 @@ RFM12_FillBuffer:
 	andi	r26, 0xf0
 
 	mov     r16, r5
-	andi    r16, 0xcf       ; clr FIFO busy and FIFO empty signalled
+	andi	r16, 0xdf	; clear fifo busy
+	ori    	r16, 0x10	; request notification
 	mov     r5, r16
 
 	;; X = 0x0130, 0x0140, etc.
