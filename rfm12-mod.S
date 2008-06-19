@@ -1990,13 +1990,13 @@ RFM12_Notify:
 	cli
 
 	mov	r18, r5
-	sbrc	r18, 5		; fifo busy
-	inc	r16		; is busy -> set len to 1.
+	sbrs	r18, 4		; notification request
+	inc	r16		; fifo busy -> set len to 1.
 
 	st	Y+, r16		; store command id/len
 	mov	r17, r16	; build crc in r17
 
-	sbrs	r18, 5 		; fifo busy
+	sbrc	r18, 4 		; notification request
 	rjmp 	RFM12_Notify_TX
 
 	st	Y+, r6		; provide received byte
