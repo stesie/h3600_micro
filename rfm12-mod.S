@@ -2008,7 +2008,6 @@ RFM12_Notify_TX:
 	sbi 	UCR, 5
 	sei
 
-	//rjmp	Label158
 	;; fall through ...
 Label158:
 main_adc_start:
@@ -2761,9 +2760,6 @@ Label238:
 	clr     r16
 	mov     r9, r16
 	sts     0x0064, r16
-	//in      r16, GIMSK
-	//ori     r16, 0x80       ; 128
-	//out     GIMSK, r16
 	ldi     r16, 0x80       ; 128
 	out     GIFR, r16
 	rjmp    Label240
@@ -3000,10 +2996,6 @@ Label251:
 	andi    r17, 0xfe       ; 254
 	sts     0x00f5, r17
 
-	//in	r17, GIMSK
-	//ori	r17, 0x80	; enable rfm12/tp interrupt
-	//out	GIMSK, r17
-
 	ldi     r27, 0x01       ; 1
 	ldi     r26, 0x00       ; 0
 	clr     r29
@@ -3038,10 +3030,6 @@ Label254:
 	sbrs    r17, 1          ; 0x02 = 2
 	rjmp    Label260
 	sbi     PORTD, 5        ; 0x20 = 32
-
-	//in	r18, GIMSK
-	//ori	r18, 0x80	; enable rfm12/tp interrupt
-	//out	GIMSK, r18
 
 	lds     r18, 0x00f6
 	sbrc    r18, 0          ; 0x01 = 1
@@ -3681,9 +3669,6 @@ Label295:
 	st      Y+, r16
 	clr     r17
 	mov     r9, r17
-	//in      r16, GIMSK
-	//ori     r16, 0x80       ; 128
-	//out     GIMSK, r16
 	ldi     r16, 0x80       ; 128
 	out     GIFR, r16
 	ret
