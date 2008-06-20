@@ -161,13 +161,7 @@ RFM12_CareForFifo_RX:
 	dec	r4
 	brne	RFM12_RX_NotComplete
 
-	ldi	r16, 0x82
-	ldi	r17, 0x08
-	rcall	RFM12_DoSpi	; RX stop
-
-	mov	r16, r5
-	andi	r16, 0xfd	; clear rx flag
-	mov	r5, r16
+	rcall	RFM12_DoSpiRxEn	; clobbers r16 and r17
 
 RFM12_RX_NotComplete:
 	ret
