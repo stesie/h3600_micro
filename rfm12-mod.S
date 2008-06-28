@@ -188,6 +188,9 @@ __vect_ExternalInt1:
 	sbrc	r16, 7
 	rcall	RFM12_CareForFifo
 
+	sbis	PIND, 3		; re-check IRQ line
+	rcall	RFM12_DoInit	; re-initialize RFM12 if still LOW
+
 .notransf:
 	rcall	RFM12_RestoreSpi
 
@@ -1413,6 +1416,27 @@ Label121:
 	out     TIFR, r16
 	ldi     r16, 0x41       ; 65
 	out     TIMSK, r16
+
+	;; initialize memarea 0x0200 ff.
+	clr	r26
+	ldi	r27, 0x02	; X ptr = 0x0200
+
+	ldi	r16, 0x20	; SPI 0xa620 (frequency 433.92 MHz)
+	st	X+, r16
+
+	ldi	r16, 0xac	; SPI 0x94ac (bandwidth)
+	st	X+, r16
+
+	ldi	r16, 0x27	; SPI 0xc627 (8620 baud)
+	st	X+, r16
+
+	ldi	r16, 0x20	; SPI 0x9820 (power)
+	st	X+, r16
+
+	rcall	RFM12_ConfigureSpi
+	rcall	RFM12_DoInit
+	rcall	RFM12_RestoreSpi
+
 	sei
 
 
@@ -4098,6 +4122,44 @@ RX_Handler_MSG_RFM12:
 	sts	0x0065, r16
 	ret			; get out here -> invalid request
 
+
+RFM12_SetFreq:
+	clr	r26
+	rjmp	RFM12_SetConfig_Out
+
+RFM12_SetBandwidth:
+	ldi	r26, 1
+	rjmp	RFM12_SetConfig_Out
+
+RFM12_SetBaud:
+	ldi	r26, 2
+	rjmp	RFM12_SetConfig_Out
+
+RFM12_SetPower:
+	ldi	r26, 3
+	rjmp	RFM12_SetConfig_Out
+
+RFM12_SetConfig_Out:
+	ldi	r27, 0x02	; construct X ptr to write to 0x200 ff.
+
+	ld	r17, Y		; read 2nd spi byte
+	st	X, r17
+
+	;; actual SPI command is in r16:r17, commit finally
+	rjmp	RFM12_SendSpiCommand
+
+RFM12_ReInit:
+	cli
+	rcall	RFM12_ConfigureSpi
+	rcall	RFM12_DoInit
+	rcall	RFM12_RestoreSpi
+	sei
+
+	clr	r16
+	sts	0x0065, r16
+	ret			; get out, don't send a reply.	
+
+	
 RFM12_Packet_valid:
 	ld	r16, Y+		; load first byte
 
@@ -4119,7 +4181,22 @@ RFM12_Packet_valid:
 
 	dec	r28
 	ld	r16, Y+		; load first byte again
-	
+
+	cpi	r16, 0xa6
+	breq	RFM12_SetFreq
+
+	cpi	r16, 0x94
+	breq	RFM12_SetBandwidth
+
+	cpi	r16, 0xc6
+	breq	RFM12_SetBaud
+
+	cpi	r16, 0x98
+	breq	RFM12_SetPower
+
+	cpi	r16, 0x01	; rfm12 reinit request
+	breq	RFM12_ReInit
+
 	cpi	r16, 0x00	; get rfm12 status request
 	breq	RFM12_GetRfm12Status
 
@@ -4191,6 +4268,7 @@ RFM12_PrepareTX:
 	rcall	RFM12_RestoreSpi
 	sei
 
+	;; fall through
 RFM12_FillBuffer:
 	dec	r28
 	ld	r16, Y+		; restore 0xFn in r16
@@ -4225,6 +4303,7 @@ RFM12_FillBuffer:
 	clr	r16
 	sts	0x0065, r16
 	ret			; get out, don't send a reply.
+
 
 ;;; send SPI commands necessary to enable RX mode
 ;;; (clobbers r16 and r17)
@@ -4414,3 +4493,48 @@ TX_RFM12_Internal_Status:
 	mov	r5, r16
 
 	rjmp	Label158	; back to mainloop
+
+
+
+.macro sspi hi lo
+	ldi	r16, \hi
+.ifc \lo, Y+
+	ld	r17, Y+
+.else
+	ldi	r17, \lo
+.endif
+	rcall	RFM12_DoSpi
+.endm
+
+
+RFM12_DoInit:
+	sspi	0xc0, 0xe0	; avr clk 10 MHz
+	sspi	0x80, 0xd7	; enable fifo
+	sspi	0xc2, 0xab	; internal filter
+	sspi	0xca, 0x81	; set fifo mode
+	sspi	0xe0, 0x00	; disable wakeup-timer
+	sspi	0xc8, 0x00	; disable low duty cycle
+	sspi	0xc4, 0xf7	; -10kHz...+7,5kHz
+	sspi	0x00, 0x00
+
+RFM12_DoConfig:
+	push	r28
+	push	r29
+
+	ldi	r29, 2
+	clr	r28
+	sspi	0xa6, Y+	; frequency
+	sspi	0x94, Y+	; bandwidth
+	sspi	0xc6, Y+	; baudrate
+	sspi	0x98, Y+	; power
+
+	sspi	0x82, 0x08	; trx off
+
+	mov	r28, r5
+	andi	r28, 0xcc	; clear rx, tx, fifo busy and notify
+	mov	r5, r28
+
+	pop	r29
+	pop	r28
+
+	ret
