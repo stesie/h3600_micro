@@ -4342,8 +4342,6 @@ RFM12_DoSpiRxEn:
 
 
 ;;; Configure SPI hardware for RFM12 use.
-.global RFM12_ConfigureSpi
-	.type	RFM12_ConfigureSpi, @function
 RFM12_ConfigureSpi:
 	;; SPE, MSTR -> clk/4
 	push	r16
@@ -4353,8 +4351,6 @@ RFM12_ConfigureSpi:
 	ret
 
 ;;; Restore "normal" SPI hardware configuration.
-.global	RFM12_RestoreSpi
-	.type	RFM12_RestoreSpi, @function
 RFM12_RestoreSpi:
 	push	r16
 	
@@ -4371,8 +4367,6 @@ RFM12_RestoreSpi:
 
 
 ;;; Send r16|r17 over SPI, return result in r16|r17 as well.
-.global	RFM12_DoSpi
-	.type	RFM12_DoSpi, @function
 RFM12_DoSpi:
 	cbi	PORTB, 4	; chip select
 
@@ -4395,8 +4389,6 @@ RFM12_DoSpi:
 	ret
 
 
-.global RFM12_GetIrqStatus
-	.type	RFM12_GetIrqStatus, @function
 RFM12_GetIrqStatus:
 	cbi	PORTB, 4	; chip select
 
