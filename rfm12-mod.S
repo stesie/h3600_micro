@@ -189,9 +189,10 @@ __vect_ExternalInt1:
 	rcall	RFM12_CareForFifo
 
 	sbis	PIND, 3		; re-check IRQ line
-	rcall	RFM12_DoInit	; re-initialize RFM12 if still LOW
-
 .notransf:
+	rcall	RFM12_DoInit	; re-initialize RFM12 if still LOW
+	rcall	RFM12_DoSpiRxEn
+
 	rcall	RFM12_RestoreSpi
 
 	pop	r17
@@ -4152,12 +4153,13 @@ RFM12_ReInit:
 	cli
 	rcall	RFM12_ConfigureSpi
 	rcall	RFM12_DoInit
+	rcall	RFM12_DoSpiRxEn
 	rcall	RFM12_RestoreSpi
 	sei
 
 	clr	r16
 	sts	0x0065, r16
-	ret			; get out, don't send a reply.	
+	ret			; get out, don't send a reply.
 
 	
 RFM12_Packet_valid:
@@ -4518,6 +4520,8 @@ RFM12_DoInit:
 	sspi	0x00, 0x00
 
 RFM12_DoConfig:
+	sspi	0x82, 0x08	; trx off
+
 	push	r28
 	push	r29
 
@@ -4528,13 +4532,14 @@ RFM12_DoConfig:
 	sspi	0xc6, Y+	; baudrate
 	sspi	0x98, Y+	; power
 
-	sspi	0x82, 0x08	; trx off
-
 	mov	r28, r5
-	andi	r28, 0xcc	; clear rx, tx, fifo busy and notify
+	andi	r28, 0xdc	; clear rx, tx and fifo busy
+	ori	r28, 0x10	; set notify
 	mov	r5, r28
 
 	pop	r29
 	pop	r28
 
+	sspi	0x00, 0x00	; status read
 	ret
+
