@@ -50,6 +50,11 @@ __vect_ExternalInt0:
 	in      r19, GIMSK
 	ori     r19, 0x80       ; 128
 	out     GIMSK, r19
+
+	mov	r19, r5
+	ori	r19, 0x40	; rfm12-reset request
+	mov	r5, r19
+
 	ldi     r19, 0x80       ; 128
 	out     GIFR, r19
 
@@ -187,12 +192,15 @@ __vect_ExternalInt1:
 	
 	sbrc	r16, 7
 	rcall	RFM12_CareForFifo
+	
+	sbic	PIND, 3		; re-check IRQ line
+	rjmp	.irq1_restore
 
-	sbis	PIND, 3		; re-check IRQ line
 .notransf:
 	rcall	RFM12_DoInit	; re-initialize RFM12 if still LOW
 	rcall	RFM12_DoSpiRxEn
 
+.irq1_restore:
 	rcall	RFM12_RestoreSpi
 
 	pop	r17
@@ -206,7 +214,11 @@ __vect_ExternalInt1:
 	out     SREG, r0
 	reti
 
-Touchpanel_IRQ:	
+Touchpanel_IRQ:
+	mov	r19, r5
+	ori	r19, 0x40	; queue reset of RFM12 module
+	mov	r5, r19
+
 	;; touchpanel interrupt handler ...
 	in      r19, GIMSK
 	andi    r19, 0x7f       ; 127
@@ -373,19 +385,43 @@ Label24:
 	rjmp    Label25
 
 
-
-
-
-
-
-
-
-
 Label25:
 	ldi     r19, 0x4c       ; 76
 	out     TCNT0, r19
+
+	sbrs	r5, 6		; rfm12-reset request
+	rjmp	.resetOut
+
+	sbis	PIND, 5		; chip select
+	rjmp	.resetOut
+
+	push	r16
+	push	r17
+	
+	rcall	RFM12_ConfigureSpi
+	rcall	RFM12_DoInit
+	rcall	RFM12_DoSpiRxEn
+	rcall	RFM12_RestoreSpi
+
+	pop	r17
+	pop	r16
+
+	sbis	PIND, 3
+	rjmp	.resetOut
+
+	mov	r19, r9
+	andi	r19, 0x07
+	brne	.resetOut
+
+	mov	r19, r5
+	andi	r19, 0xbf
+	mov	r5, r19
+
+.resetOut:
 	out     SREG, r0
 	reti
+
+
 
 
 __vect_Timer2Ovf:
@@ -1454,6 +1490,10 @@ MainLoop_Start:
 	mov	r16, r9
 	andi	r16, 0x07
 	brne	SkipIntEnable
+
+	mov	r19, r5
+	ori	r19, 0x40	; rfm12-reset request
+	mov	r5, r19
 
 	cli
 	ori	r17, 0x80
@@ -4501,6 +4541,7 @@ TX_RFM12_Internal_Status:
 .endm
 
 
+;;; clobbers r16 and r17
 RFM12_DoInit:
 	sspi	0xc0, 0xe0	; avr clk 10 MHz
 	sspi	0x80, 0xd7	; enable fifo
