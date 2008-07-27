@@ -157,24 +157,50 @@ RFM12_CareForFifo_RX:
 	ldi	r16, 0xb0
 	clr	r17
 	rcall	RFM12_DoSpi
-	mov	r6, r17
+	mov	r6, r17		; store received byte to fifo
 
+	sbrc	r3, 7
+	rjmp	RFM12_RX_FirstByte
+
+	sbrs	r3, 6
+	rjmp	RFM12_RX_Decrement
+
+	;; Store the (least significant) length byte to r4, then decrement it
+	;; to make the compare below overflow if the last byte has been handled.
+	;; This is we don't test for r3:r4 to be zero but we wait for r3 to
+	;; overflow which would happen one iteration later.
+	mov	r4, r6
+
+	;; clear wait-for-byte-flag
+	mov	r16, r3
+	andi	r16, 0x07
+	mov	r3, r16
+	
+RFM12_RX_Decrement:
 	mov	r16, r4
-	cpi	r16, 0xff	; length yet unknown, i.e. first byte?
-	breq	RFM12_RX_FirstByte
+	subi	r16, 0x01	     ; decr counter (lsb)
+	brcc	RFM12_RX_NotComplete ; out if r16 didn't overflow
 
-	dec	r4
-	brne	RFM12_RX_NotComplete
-
-	rcall	RFM12_DoSpiRxEn	; clobbers r16 and r17
+	;; overflow on r4, there decrement r3 as well
+	mov	r17, r3
+	subi	r17, 0x01
+	brcs	RFM12_RX_Complete ; overflow -> end of packet
+	mov	r3, r17
 
 RFM12_RX_NotComplete:
+	mov	r4, r16
 	ret
+
+RFM12_RX_Complete:
+	rjmp	RFM12_DoSpiRxEn	; clobbers r16 and r17
+	;ret
 
 RFM12_RX_FirstByte:
-	mov	r4, r6		; packet length -> r4
+	;; packet length (msb) in r17
+	andi	r17, 0x07	; select bits 8..10 from length specifier
+	ori	r17, 0x40	; mark `2nd byte left to receive' flag
+	mov	r3, r17
 	ret
-
 
 __vect_ExternalInt1:
 	in      r0, SREG
@@ -4371,8 +4397,11 @@ RFM12_DoSpiRxEn:
 	ori	r16, 0x02	; set rx flag
 	mov	r5, r16
 
-	ser	r16
-	mov	r4, r16		; set r4 to 0xFF aka length yet unknown.
+	ldi	r16, 0xc0	; set wait bytes 0 & 1
+	mov	r3, r16
+
+	clr	r16
+	mov	r4, r16		; clr r4
 	
 	ldi	r16, 0x82
 	ldi	r17, 0x08	; trx off
