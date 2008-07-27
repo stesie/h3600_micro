@@ -152,6 +152,7 @@ RFM12_CareForFifo_RX:
 	sbrc	r16, 5		; FIFO busy
 	ori	r16, 0x80	; set FIFO overrun (FIFO bit set)
 	ori	r16, 0x20	; set FIFO busy
+	andi	r16, 0xef	; clear notification request
 	mov	r5, r16
 
 	ldi	r16, 0xb0
@@ -4247,11 +4248,8 @@ RFM12_Packet_valid:
 	cpi	r16, 0xf1	; enable RX
 	breq	RFM12_EnableRX
 
-	cpi	r16, 0xf2	; enable TX/initial data
+	cpi	r16, 0xf2	; enable TX
 	breq	RFM12_EnableTX
-
-	cpi	r16, 0xf3	; prepare tx/fill first buffer
-	breq	RFM12_PrepareTX
 
 	cpi	r16, 0xf0	; get internal status request
 	breq 	RFM12_GetInternalStatus
@@ -4317,14 +4315,24 @@ RFM12_EnableRX:
 
 RFM12_EnableTX:
 	cli
+
+	mov	r16, r5
+	andi	r16, 0xfd	; clear rx flag
+	ori	r16, 0x01	; set tx flag
+	mov	r5, r16
+
 	rcall	RFM12_ConfigureSpi
+
+	ldi	r16, 0x82
+	ldi	r17, 0x08	; trx off
+	rcall	RFM12_DoSpi
 
 	ld	r4, Y		; last buffer to transmit -> r4
 	swap	r4
 
 	ldi	r16, 0x31
 	mov	r6, r16		; first byte to send will be at 0x0131
-	
+
 	ldi	r16, 0x82
 	ldi	r17, 0x38	; tx on
 	rcall	RFM12_DoSpi
@@ -4333,23 +4341,6 @@ RFM12_EnableTX:
 
 	rjmp	RFM12_GetInternalStatus
 
-RFM12_PrepareTX:
-	mov	r16, r5
-	andi	r16, 0xfd	; clear rx flag
-	ori	r16, 0x01	; set tx flag
-	mov	r5, r16
-
-	cli
-	rcall	RFM12_ConfigureSpi
-
-	ldi	r16, 0x82
-	ldi	r17, 0x08	; trx off
-	rcall	RFM12_DoSpi
-
-	rcall	RFM12_RestoreSpi
-	sei
-
-	;; fall through
 RFM12_FillBuffer:
 	dec	r28
 	ld	r16, Y+		; restore 0xFn in r16
