@@ -3616,6 +3616,13 @@ SleepEnable_PowerDown:
 	lds     r16, 0x008e
 	andi    r16, 0x03       ; 3
 	brne    FinishLoopWithoutSleeping
+
+	;; disable rfm12 module
+	rcall	RFM12_ConfigureSpi
+	ldi	r16, 0x82
+	clr	r17
+	rcall	RFM12_RestoreSpi
+	
 	cbi     ADCSR, 7        ; 0x80 = 128
 	cbi     SPCR, 6         ; 0x40 = 64
 	cbi     PORTC, 3        ; 0x08 = 8
@@ -3636,6 +3643,12 @@ SleepEnable_PowerDown:
 	nop
 	nop
 	nop
+
+	;; request reset of rfm12 module
+	mov	r16, r5
+	ori	r16, 0x40
+	mov	r5, r16
+
 	sbi     DDRD, 1         ; 0x02 = 2
 	sbi     UCR, 4          ; 0x10 = 16
 	sbi     UCR, 3          ; 0x08 = 8
