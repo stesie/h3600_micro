@@ -3641,6 +3641,7 @@ SleepEnable_PowerDown:
 	rcall	RFM12_ConfigureSpi
 	ldi	r16, 0x82
 	clr	r17
+	rcall	RFM12_DoSpi
 	rcall	RFM12_RestoreSpi
 	
 	cbi     ADCSR, 7        ; 0x80 = 128
