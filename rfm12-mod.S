@@ -3615,25 +3615,15 @@ Label287:
 	brne	FinishLoopWithoutSleeping
 	sbic    PINB, 3         ; 0x08 = 8
 	rjmp    SleepEnable_PowerDown
+
 SleepEnable_Idle:
 	cbi     ADCSR, 7        ; 0x80 = 128
 	cbi     SPCR, 6         ; 0x40 = 64
 	ldi     r16, 0x40       ; 64
 	out     MCUCR, r16
 	sei
-	sleep			; FIXME why sleep here?  PB3 is low ?
+	sleep
 	rjmp    MainLoop_Start
-
-
-
-
-
-
-
-
-
-
-
 
 
 
