@@ -39,31 +39,31 @@ main:
 
 __vect_ExternalInt0:
 	in      r0, SREG
-	sbic    PINB, 3         ; 0x08 = 8
+	sbic    PINB, 3         ; 0x08 = 8 (CPU to uC int, active low)
 	rjmp    Label2
-	sbi     PORTD, 7        ; 0x80 = 128
+	sbi     PORTD, 7        ; 0x80 = 128 (Disable CPU-to-uC IRQ)
 	sbis	PORTD, 5	; chip select (sleeve)
 	rjmp	Label2		; don't allow INT1 if "normal" CS is active
 	mov     r19, r9
 	andi    r19, 0x07       ; 7
 	brne    Label2
 	in      r19, GIMSK
-	ori     r19, 0x80       ; 128
+	ori     r19, 0x80       ; 128 (enable ext. INT1)
 	out     GIMSK, r19
 
 	mov	r19, r5
 	ori	r19, 0x40	; rfm12-reset request
 	mov	r5, r19
 
-	ldi     r19, 0x80       ; 128
+	ldi     r19, 0x80       ; 128 (clear INT1 flag)
 	out     GIFR, r19
 
 
 
 Label2:
-	sbis    PINB, 0         ; 0x01 = 1
-	sbi     PORTC, 4        ; 0x10 = 16
-	sbis    PINB, 2         ; 0x04 = 4
+	sbis    PINB, 0         ; 0x01 = 1 (AC adapter int, low active)
+	sbi     PORTC, 4        ; 0x10 = 16 (Disable AC interrupt)
+	sbis    PINB, 2         ; 0x04 = 4 (Key pressed ind., low active)
 	rjmp    KeyPress_IRQ
 	rjmp    __vect_ExternalInt0_out
 
@@ -75,7 +75,7 @@ KeyPress_IRQ:
 	clr     r19
 	sts     0x0069, r19
 	sts     0x006c, r19
-	sbi     PORTD, 6        ; 0x40 = 64
+	sbi     PORTD, 6        ; 0x40 = 64 (Disable Key press)
 	ldi     r19, 0x05       ; 5
 	sts     0x00fe, r19
 	lds     r19, 0x0068
