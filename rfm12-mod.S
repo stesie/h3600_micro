@@ -424,6 +424,9 @@ Label25:
 	sbis	PIND, 5		; chip select
 	rjmp	.resetOut
 
+	sbic	PINB, 3		; CPU awake
+	rjmp	.resetOut
+
 	push	r16
 	push	r17
 	
