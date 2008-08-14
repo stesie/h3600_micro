@@ -3643,6 +3643,11 @@ SleepEnable_PowerDown:
 	andi    r16, 0x03       ; 3
 	brne    FinishLoopWithoutSleeping
 
+	;; disable external int1
+	in	r16, GIMSK
+	andi	r16, 0x7f	; clear ext int 1
+	out	GIMSK, r16
+
 	;; disable rfm12 module
 	rcall	RFM12_ConfigureSpi
 	ldi	r16, 0x82
@@ -3675,6 +3680,11 @@ SleepEnable_PowerDown:
 	mov	r16, r5
 	ori	r16, 0x40
 	mov	r5, r16
+
+	;; re-enable int1
+	in	r16, GIMSK
+	ori	r16, 0x80	; ext int 1
+	out	GIMSK, r16
 
 	sbi     DDRD, 1         ; 0x02 = 2
 	sbi     UCR, 4          ; 0x10 = 16
