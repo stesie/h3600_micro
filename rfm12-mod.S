@@ -3613,7 +3613,7 @@ Label287:
 	andi    r16, 0x0f       ; 15
 	brne    FinishLoopWithoutSleeping
 	mov	r16, r5
-	andi	r16, 0x7c	; notification or reset-request
+	andi	r16, 0x3c
 	brne	FinishLoopWithoutSleeping
 	sbic    PINB, 3         ; 0x08 = 8
 	rjmp    SleepEnable_PowerDown
