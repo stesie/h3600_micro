@@ -51,9 +51,11 @@ __vect_ExternalInt0:
 	ori     r19, 0x80       ; 128 (enable ext. INT1)
 	out     GIMSK, r19
 
-	mov	r19, r5
-	ori	r19, 0x40	; rfm12-reset request
-	mov	r5, r19
+	;; The interrupt should have been disabled before, therefore probably
+	;; no need to reset.
+	;;mov	r19, r5
+	;;ori	r19, 0x40	; rfm12-reset request
+	;;mov	r5, r19
 
 	ldi     r19, 0x80       ; 128 (clear INT1 flag)
 	out     GIFR, r19
