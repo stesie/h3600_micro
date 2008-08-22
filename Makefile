@@ -1,4 +1,4 @@
-F		:= original
+F		:= original_107
 N		:= rfm12-mod
 DOTOPTIONS 	:= -Grankdir=LR
 AVRDUDE		:= avrdude -p8535
